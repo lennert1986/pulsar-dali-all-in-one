@@ -61,4 +61,36 @@ class Tests(unittest.TestCase):
         self.start()
         self.b.close()
         with self.assertRaises(ValueError):self.b.receive("finish",payload(),"192.168.1.1",FP)
+    def test_only_one_master_and_legacy_blocked(self):
+        self.start()
+        other=dict(payload(),id="ab"*16,requester="pulsar-c")
+        self.b.receive("start",other,"192.168.1.3",FP)
+        self.b.decision(PID,True)
+        with self.assertRaises(ValueError):self.b.decision(other["id"],True)
+        self.assertFalse(self.b.authorized("Bearer legacy","legacy",True))
+        token=self.b.receive("finish",payload(),"192.168.1.1",FP)["token"]
+        self.assertFalse(self.b.authorized("Bearer legacy","legacy",True))
+        with self.assertRaises(ValueError):self.b.allow(True)
+        with self.assertRaises(ValueError):self.b.receive("start",other,"192.168.1.3",FP)
+        self.assertTrue(self.b.authorized("Bearer "+token,host="192.168.1.44"))
+        self.assertEqual(self.b.status(True)["grants"][0]["host"],"192.168.1.44")
+        self.b.revoke(PID)
+        self.b.allow(True)
+        self.b.receive("start",other,"192.168.1.3",FP)
+        self.b.decision(other["id"],True)
+        token2=self.b.receive("finish",other,"192.168.1.3",FP)["token"]
+        self.assertTrue(self.b.authorized("Bearer "+token2))
+        self.assertFalse(self.b.authorized("Bearer "+token))
+    def test_legacy_opt_in_and_conflicting_grants(self):
+        from pairing import digest
+        self.assertFalse(self.b.authorized("Bearer legacy","legacy"))
+        self.assertTrue(self.b.authorized("Bearer legacy","legacy",True))
+        self.b.save({PID:dict(hash=digest(SECRET),controller_id="a",host="192.168.1.1"),
+                     "cd"*16:dict(hash=digest(FP),controller_id="c",host="192.168.1.3")})
+        self.assertTrue(self.b.status(True)["master_conflict"])
+        self.assertFalse(self.b.authorized("Bearer "+SECRET))
+        self.assertFalse(self.b.authorized("Bearer "+FP))
+        self.assertFalse(self.b.authorized("Bearer legacy","legacy",True))
+        self.b.revoke("cd"*16)
+        self.assertTrue(self.b.authorized("Bearer "+SECRET))
 if __name__=="__main__":unittest.main()

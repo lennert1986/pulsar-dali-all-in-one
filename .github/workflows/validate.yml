@@ -26,5 +26,6 @@ jobs:
           node --check /tmp/testlab.js
           python3 app/test_ui_layout.py
           python3 app/test_pairing.py
+          python3 app/test_reconnect.py
           python3 -c 'from pathlib import Path; import sys; sys.path.insert(0,"app"); from pairing_ui import PANEL; Path("/tmp/pairing.js").write_text(PANEL.split("<script>",1)[1].split("</script>",1)[0])'
           node --check /tmp/pairing.js

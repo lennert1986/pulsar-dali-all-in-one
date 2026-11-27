@@ -60,7 +60,7 @@ class Discovery:
                     s.setsockopt(socket.IPPROTO_IP,socket.IP_ADD_MEMBERSHIP,socket.inet_aton(GROUP)+socket.inet_aton("0.0.0.0"))
                     s.setsockopt(socket.IPPROTO_IP,socket.IP_MULTICAST_TTL,1)
                     s.settimeout(0.5);self.error="";next_send=0
-                    payload=json.dumps({"protocol":MAGIC,"controller_id":self.uid,"port":8443,"name":self.name,"version":"0.21.0"}).encode()
+                    payload=json.dumps({"protocol":MAGIC,"controller_id":self.uid,"port":8443,"name":self.name,"version":"0.21.1"}).encode()
                     while not self.stop_event.is_set():
                         now=time.monotonic()
                         if self.advertise and now>=next_send:

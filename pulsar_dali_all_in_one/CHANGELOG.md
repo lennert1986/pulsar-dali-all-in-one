@@ -1,3 +1,10 @@
+# 0.21.1 – single master and verified IP recovery
+
+- One incoming paired master per controller; further pairing blocked until master revoked. Multiple previous grants fail closed until locally resolved. Master may manage multiple controllers.
+- Shared legacy remote API token disabled by default; optional `remote_legacy_token_enabled` works only while unpaired. Paired controllers reject the shared token even if enabled.
+- Discovery-based IPv4 recovery verifies the saved certificate, token and controller ID before saving a new address. Never automatically retries write commands. Registry IDs stay stable and stale API requests cannot revert a migrated IP.
+- Master address display follows authenticated requests. Automatic IP recovery requires discovery on both controllers and remote HTTPS on the managed device. Custom DNS and non-LAN addresses remain manual.
+
 # 0.21.0 – controller pairing (experimental)
 
 - LAN discovery now offers Add controller and advertises a name/version.

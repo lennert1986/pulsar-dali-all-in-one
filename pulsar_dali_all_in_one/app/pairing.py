@@ -85,7 +85,9 @@ class Service:
     def grants(self):
         try:
             v=json.loads(self.path.read_text())
-            return v if isinstance(v,dict) else {}
+            if not isinstance(v,dict) or any(not isinstance(g,dict) or not isinstance(g.get("hash"),str) or not isinstance(g.get("controller_id"),str) or not isinstance(g.get("host"),str) for g in v.values()):
+                raise ValueError("Invalid master grants")
+            return v
         except FileNotFoundError:
             return {}
     def save(self,grants):
@@ -96,14 +98,37 @@ class Service:
             os.fchmod(f.fileno(),0o600)
             json.dump(grants,f)
         os.replace(tmp,self.path)
-    def authorized(self,header):
-        if not header.startswith("Bearer ") or not HEX.fullmatch(header[7:]):
+    def authorized(self,header,legacy_token="",legacy_enabled=False,host=None):
+        if not isinstance(header,str) or not header.startswith("Bearer "):
             return False
-        hashed=digest(header[7:])
+        token=header[7:]
         try:
             with self.lock:
-                return any(hmac.compare_digest(hashed,g.get("hash","")) for g in self.grants().values() if isinstance(g,dict))
-        except (OSError,ValueError,TypeError):
+                grants=self.grants()
+                # Multiple legacy grants are a conflict; fail closed until the
+                # operator explicitly revokes all but one in local HA ingress.
+                if len(grants)>1:
+                    return False
+                if not grants:
+                    # Do not allow legacy tokens while a master is being approved.
+                    self.prune()
+                    if any(v["state"]=="approved" for v in self.incoming.values()):
+                        return False
+                    return bool(legacy_enabled and legacy_token and hmac.compare_digest(token,legacy_token))
+                g=next(iter(grants.values()))
+                if not HEX.fullmatch(token) or not hmac.compare_digest(digest(token),g.get("hash","")):
+                    return False
+                # A master's DHCP address is informational, never an identity check.
+                if host:
+                    try:
+                        new_host=lan(host)
+                        if g.get("host")!=new_host:
+                            g["host"]=new_host
+                            self.save(grants)
+                    except (OSError,ValueError):
+                        pass
+                return True
+        except (OSError,ValueError,TypeError,AttributeError):
             return False
     def status(self,listening):
         with self.lock:
@@ -112,13 +137,17 @@ class Service:
             def public(store):
                 return [dict(id=k,host=v["host"],controller_id=v["controller_id"],code=v["code"],
                         state=v["state"],remaining=max(0,int(v["expires"]-now))) for k,v in store.items()]
-            return dict(ok=True,listening=listening,remaining=max(0,int(self.until-now)) if listening else 0,
+            grants=self.grants()
+            return dict(ok=True,listening=listening,remaining=max(0,int(self.until-now)) if listening and not grants else 0,
+                        master_locked=bool(grants),master_conflict=len(grants)>1,
                         incoming=public(self.incoming),outgoing=public(self.outgoing),
-                        grants=[dict(id=k,controller_id=v["controller_id"],host=v["host"]) for k,v in self.grants().items()])
+                        grants=[dict(id=k,controller_id=v["controller_id"],host=v["host"]) for k,v in grants.items()])
     def allow(self,listening):
         if not listening:
             raise ValueError("Aktiver remote HTTPS først")
         with self.lock:
+            if self.grants():
+                raise ValueError("Fjern eksisterende master først")
             self.until=time.monotonic()+TTL
     def close(self):
         with self.lock:
@@ -130,6 +159,12 @@ class Service:
             row=self.incoming.get(check(pid,PID))
             if not row or row["state"]!="pending" or (accept and time.monotonic()>=self.until):
                 raise ValueError("Udløbet eller behandlet")
+            if accept:
+                if self.grants() or any(v["state"]=="approved" for k,v in self.incoming.items() if k!=pid):
+                    raise ValueError("Controller har allerede en master eller godkendt anmodning")
+                for k,v in self.incoming.items():
+                    if k!=pid and v["state"]=="pending":
+                        v["state"]="denied"
             row["state"]="approved" if accept else "denied"
     def revoke(self,pid):
         with self.lock:
@@ -137,7 +172,8 @@ class Service:
             if grants.pop(check(pid,PID),None) is None:
                 raise ValueError("Ukendt adgang")
             self.save(grants)
-            self.incoming.pop(pid,None)
+            self.incoming.clear()
+            self.until=0
     def receive(self,action,data,host,fp):
         host=lan(host)
         pid=check(data.get("id"),PID)
@@ -147,7 +183,7 @@ class Service:
             now=time.monotonic()
             if action=="start":
                 source=check(data.get("requester"),UID)
-                if now>=self.until or source==self.uid or data.get("target")!=self.uid or pid in self.incoming or len(self.incoming)>=LIMIT:
+                if self.grants() or any(v["state"]=="approved" for v in self.incoming.values()) or now>=self.until or source==self.uid or data.get("target")!=self.uid or pid in self.incoming or len(self.incoming)>=LIMIT:
                     raise ValueError("Parring lukket eller ugyldig")
                 self.incoming[pid]=dict(host=host,controller_id=source,secret_hash=digest(secret),
                     code=code(secret,pid,source,self.uid,fp),state="pending",expires=min(now+TTL,self.until),
@@ -158,12 +194,13 @@ class Service:
                 raise ValueError("Ukendt anmodning")
             if row["state"]=="approved":
                 grants=self.grants()
-                if len(grants)>=128:
-                    raise ValueError("For mange parringer")
+                if grants:
+                    raise ValueError("Controller har allerede en master")
                 token=secrets.token_hex(32)
                 grants[pid]=dict(hash=digest(token),controller_id=row["controller_id"],host=host)
                 self.save(grants)
                 row.update(state="complete",token=token)
+                self.until=0
             if row["state"]=="complete":
                 return dict(ok=True,state="complete",token=row["token"],controller_id=self.uid)
             return dict(ok=True,state=row["state"])
@@ -283,7 +320,7 @@ def install(handler,app):
                 def register(item,token):
                     now=time.strftime("%Y-%m-%d %H:%M:%S")
                     record=dict(name=item["name"],host=item["host"],port=8443,token=token,
-                                fingerprint=item["pin"],created_at=now,remote_controller_id=item["controller_id"])
+                                fingerprint=item["pin"],created_at=now,remote_controller_id=item["controller_id"],paired=True)
                     test=app["test_remote_controller"](record)
                     if test.get("controller_id")!=item["controller_id"]:raise ValueError("Controller-ID stemmer ikke")
                     record.update(last_ok=now,last_error="",firmware=test.get("firmware"))
@@ -297,7 +334,7 @@ def install(handler,app):
             else:return h._json(dict(ok=False,error="not found"),404)
             return h._json(dict(ok=True))
         except (ValueError,KeyError,OSError,RuntimeError,TypeError,http.client.HTTPException):
-            return h._json(dict(ok=False,error="Parring kunne ikke gennemføres. Kontrollér parringsvinduet, koden og HTTPS."),400)
+            return h._json(dict(ok=False,error="Parring kunne ikke gennemføres. Kontrollér parringsvinduet, eksisterende master, koden og HTTPS."),400)
     def get(h):return dispatch(h,"GET",old_get)
     def post(h):return dispatch(h,"POST",old_post)
     handler.do_GET,handler.do_POST=get,post

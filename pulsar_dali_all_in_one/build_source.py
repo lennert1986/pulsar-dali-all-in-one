@@ -8,7 +8,7 @@ def change(old,new):
     global s
     if old not in s: raise RuntimeError("Missing patch anchor: "+repr(old))
     s=s.replace(old,new,1)
-s=s.replace("0.12.0","0.21.0").replace("Pulsar DALI Control 0.21.0","Pulsar DALI All-in-One 0.21.0")
+s=s.replace("0.12.0","0.21.1").replace("Pulsar DALI Control 0.21.1","Pulsar DALI All-in-One 0.21.1")
 change('    remote_api_enabled: bool = False','    remote_api_enabled: bool = False\n    local_dali_enabled: bool = True')
 change('        led_enabled=bool(data.get("led_enabled", True)),','        led_enabled=bool(data.get("led_enabled", True)) and bool(data.get("local_dali_enabled", True)),')
 change('        remote_api_enabled=bool(data.get("remote_api_enabled", False)),','        remote_api_enabled=bool(data.get("remote_api_enabled", False)),\n        local_dali_enabled=bool(data.get("local_dali_enabled", True)),')
@@ -69,8 +69,44 @@ change('import test_lab\n\ntest_lab.install', 'import ui_layout\nPAGE=ui_layout.
 
 # Pairing is separate from the remote data-plane allowlists.
 change('import test_lab\n\ntest_lab.install', 'import pairing\nimport test_lab\n\ntest_lab.install')
-change('if not self.server.remote_token or not hmac.compare_digest(supplied, expected):','if not ((self.server.remote_token and hmac.compare_digest(supplied, expected)) or pairing.service(self).authorized(supplied)):')
+change('if not self.server.remote_token or not hmac.compare_digest(supplied, expected):','if not pairing.service(self).authorized(supplied, str(self.server.remote_token or ""), self.server.settings.remote_legacy_token_enabled, client):')
 change('if __name__ == "__main__":\n    raise SystemExit(main())','pairing.install(Handler, globals())\n\nif __name__ == "__main__":\n    raise SystemExit(main())')
+
+
+# Exclusive master, and discovery-based verified address recovery.
+change('    remote_api_enabled: bool = False','    remote_api_enabled: bool = False\n    remote_legacy_token_enabled: bool = False')
+change('        remote_api_enabled=bool(data.get("remote_api_enabled", False)),','        remote_api_enabled=bool(data.get("remote_api_enabled", False)),\n        remote_legacy_token_enabled=bool(data.get("remote_legacy_token_enabled", False)),')
+change('import pairing\nimport test_lab','import pairing\nimport reconnect\nimport test_lab')
+change('    discovery_worker.start()\n    from clock_sync import Clock','    discovery_worker.start()\n    reconnect_worker=reconnect.Reconnect(discovery_worker,load_controller_registry,save_controller_registry,CONTROLLERS_LOCK,remote_controller_request,log)\n    reconnect_worker.start()\n    from clock_sync import Clock')
+change('        clock_worker.stop()\n        discovery_worker.stop()','        clock_worker.stop()\n        reconnect_worker.stop()\n        discovery_worker.stop()')
+change('        "remote_controller_id": item.get("remote_controller_id"),','        "remote_controller_id": item.get("remote_controller_id"),\n        "paired": bool(item.get("paired")),')
+# Do not overwrite an address or revive a deleted registry entry when a call completes.
+change('def sanitise_controller(controller_id: str, item: dict) -> dict:', '''def commit_controller_status(cid, original, result):
+    with CONTROLLERS_LOCK:
+        registry = load_controller_registry()
+        current = registry.get(cid)
+        if current is None or reconnect.identity(current) != reconnect.identity(original):
+            return
+        for key in ("last_ok", "last_error", "firmware", "remote_controller_id"):
+            if key in result:
+                if key == "remote_controller_id" and current.get(key) and result[key] != current[key]:
+                    continue
+                current[key] = result[key]
+        save_controller_registry(registry)
+
+def sanitise_controller(controller_id: str, item: dict) -> dict:''')
+change('                    item = dict(registry[cid])\n                item["name"]', '                    item = dict(registry[cid])\n                original = dict(item)\n                item["name"]')
+change('                    registry[cid] = item\n                    save_controller_registry(registry)\n                self._json({"ok": True, "controller": sanitise_controller(cid, item), "test": test})','                    if cid not in registry or reconnect.identity(registry[cid]) != reconnect.identity(original):\n                        raise ValueError("Controller changed; refresh and retry")\n                    if original.get("remote_controller_id") and test.get("controller_id") != original["remote_controller_id"]:\n                        raise ValueError("Controller identity mismatch")\n                    registry[cid] = item\n                    save_controller_registry(registry)\n                self._json({"ok": True, "controller": sanitise_controller(cid, item), "test": test})')
+change('                    item = dict(registry[cid])\n                try:\n                    test = test_remote_controller(item)','                    item = dict(registry[cid])\n                original = dict(item)\n                try:\n                    test = test_remote_controller(item)')
+change('                    item = dict(registry[cid])\n                parsed_target','                    item = dict(registry[cid])\n                original = dict(item)\n                parsed_target')
+old_status='                    with CONTROLLERS_LOCK:\n                        registry = load_controller_registry(); registry[cid] = item; save_controller_registry(registry)\n                    raise\n                with CONTROLLERS_LOCK:\n                    registry = load_controller_registry(); registry[cid] = item; save_controller_registry(registry)'
+new_status='                    commit_controller_status(cid, original, item)\n                    raise\n                commit_controller_status(cid, original, item)'
+change(old_status,new_status)
+change(old_status,new_status)
+# Reject duplicate manually added controllers; existing registry IDs remain stable.
+change('                    registry = load_controller_registry()\n                    registry[cid] = item\n                    save_controller_registry(registry)\n                log(f"Central management: added', '                    registry = load_controller_registry()\n                    if not item.get("remote_controller_id") or item["remote_controller_id"] == ctl.controller_id or any(x.get("remote_controller_id") == item["remote_controller_id"] for x in registry.values()):\n                        raise ValueError("Controller already registered or invalid identity")\n                    registry[cid] = item\n                    save_controller_registry(registry)\n                log(f"Central management: added')
+# Never silently adopt a different identity returned by an endpoint.
+change('        return payload\n    finally:', '        if controller.get("remote_controller_id") and payload.get("controller_id") and payload["controller_id"] != controller["remote_controller_id"]:\n            raise ValueError("Remote controller identity mismatch")\n        return payload\n    finally:')
 
 compile(s,"pulsar_dali_control.py","exec")
 out=pathlib.Path(sys.argv[1])

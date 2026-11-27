@@ -1,5 +1,5 @@
 name: "Pulsar DALI All-in-One"
-version: "0.21.0"
+version: "0.21.1"
 slug: "pulsar_dali_all_in_one"
 description: >-
   Native Glamox/ES-SYSTEM Pulsar DALI gateway with control gear, groups, scenes,
@@ -64,6 +64,7 @@ options:
   clock_sync_interval: 60
   controller_discovery_enabled: false
   remote_api_enabled: false
+  remote_legacy_token_enabled: false
 schema:
   hardware_model: "list(auto|vertex_g3|vertex_g4|remote_only|manual)"
   led_active_high: bool
@@ -98,3 +99,4 @@ schema:
   clock_sync_interval: "int(30,300)"
   controller_discovery_enabled: bool
   remote_api_enabled: bool
+  remote_legacy_token_enabled: bool

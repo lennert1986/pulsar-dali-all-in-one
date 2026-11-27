@@ -380,12 +380,19 @@ def input_action(c,b,a,d):
         if param=="enabled": integer(value,0,1,"enabled")
         if param=="event_filter" and any(c._dali2_query_instance(b,a,inst,op) is None for op in (0x90,0x91,0x92)): raise ValueError("Event filter not fully readable")
         return c.set_input_config(b,a,inst,param,value)
-    if d["action"] in ("feedback_read","feedback"):
+    if d["action"] in ("feedback_read","feedback","feedback_config","feedback_mqtt","binding_read","binding_set"):
         import feedback
         if info.get("address_conflict") or device.get("address_conflict"):
             raise ValueError("Input address conflict")
         if d["action"]=="feedback_read":
             return feedback.inspect(c,b,a,inst)
+        if d["action"]=="feedback_config":
+            return feedback.configure(c,b,a,inst,d.get("parameter"),d.get("value"))
+        if d["action"] in ("binding_read","binding_set","feedback_mqtt"):
+            import button_bindings
+            if d["action"]=="feedback_mqtt":
+                return button_bindings.mqtt_command(c,b,a,inst,integer(d.get("value"),0,1,"value"))
+            return button_bindings.config(c,b,a,inst,d)
         # Explicit isolated test only; no background writes before physical validation.
         return feedback.command(c,b,a,inst,integer(d.get("value"),0,1,"value"))
     return {"input_value":c._read_input_value(b,a,inst,info.get("resolution")),"instance_type":info.get("instance_type")}
@@ -453,10 +460,10 @@ def execute(c,d):
     if not c.settings.local_dali_enabled: raise ValueError("Local DALI disabled")
     b=integer(d.get("bus"),1,3,"bus")
     action=d.get("action")
-    if action not in ("inspect","memory","name","basic_config","fade","curve","color","light","reset","emergency_read","emergency_test","commission_input","input_config","input_read","feedback_read","feedback","restore_preview","restore_apply"):
+    if action not in ("inspect","memory","name","basic_config","fade","curve","color","light","reset","emergency_read","emergency_test","commission_input","input_config","input_read","feedback_read","feedback","feedback_config","feedback_mqtt","binding_read","binding_set","restore_preview","restore_apply"):
         raise ValueError("Unknown advanced operation")
-    if action in ("basic_config","fade","curve","color","light","reset","emergency_test","commission_input","input_config","feedback","restore_apply") and d.get("confirm") is not True: raise ValueError("Explicit confirmation required")
-    if action in ("commission_input","emergency_test","feedback") and d.get("test_bus") is not True: raise ValueError("Confirm isolated test bus")
+    if action in ("basic_config","fade","curve","color","light","reset","emergency_test","commission_input","input_config","feedback","feedback_config","feedback_mqtt","binding_set","restore_apply") and d.get("confirm") is not True: raise ValueError("Explicit confirmation required")
+    if action in ("commission_input","emergency_test","feedback","feedback_config") and d.get("test_bus") is not True: raise ValueError("Confirm isolated test bus")
     # Serialize multi-frame operations with every normal high-level command.
     with c.operation_lock:
         if c.scan_running: raise ValueError("Scan in progress")
@@ -465,7 +472,7 @@ def execute(c,d):
             c.create_backup([b],"before-input-commission")
             return {"ok":True,**commission_one(c,b)}
         a=integer(d.get("address"),0,63,"address")
-        if action in ("input_config","input_read","feedback_read","feedback"):
+        if action in ("input_config","input_read","feedback_read","feedback","feedback_config","feedback_mqtt","binding_read","binding_set"):
             return {"ok":True,**input_action(c,b,a,d)}
         g=gear(c,b,a,d.get("uid"))
         if action=="inspect": r=inspect(c,b,a)
@@ -559,6 +566,11 @@ PRESERVE=("name","device_types","fade_time","fade_rate","extended_fade_time","di
 PRESERVE += ("identity_read_at","capabilities_read_at","color_read_at","last_memory_bank","driver_firmware","driver_hardware","iec101","iec102","iec103","logical_control_devices","logical_control_gear","logical_index","gtin_raw","apparent_energy_kvah","apparent_power_va","gear_temperature_c","light_temperature_c")+tuple("sampled_bank_"+str(n) for n in range(202,208))
 
 def install(cls):
+    old_snapshot=cls.snapshot
+    def snapshot(self):
+        import button_bindings
+        return button_bindings.enrich(old_snapshot(self))
+    cls.snapshot=snapshot
     # One optional capability query for each scanned push-button/generic instance.
     # No automatic feedback activation or permanent settings writes.
     old_input=cls._read_control_device_details

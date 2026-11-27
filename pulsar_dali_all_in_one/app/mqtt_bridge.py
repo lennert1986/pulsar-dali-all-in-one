@@ -115,6 +115,11 @@ def catalog(s,name,prefix,bridge_av,dt8=False):
         b,a,n=i["bus"],i["address"],i["instance"]; t=i.get("instance_type"); suf=f"input_{b}_{a}_{n}"
         d=dev(f"input_{b}_{a}",f"DALI {b} - Input {a}","DALI-2 input")
         ok=bus_ok(b) and devices.get((b,a),{}).get("online")
+        f=i.get("feedback_features") or {}
+        if s.get("feedback_mqtt_enabled") and f.get("visible") and not f.get("audible") and (i.get("local_binding") or {}).get("feedback_mode","none")=="none":
+            for value,label in ((1,"Activate feedback"),(0,"Stop feedback")):
+                add("button",suf+"_feedback_"+str(value),d,label+" "+str(n),ok and not i.get("address_conflict") and not devices.get((b,a),{}).get("address_conflict"),
+                    route=dict(kind="feedback",bus=b,address=a,instance=n,controller_id=cid,value=value),payload_press="PRESS",retain=False)
         if t==1: add("event",suf,d,f"Button {n}",ok,event_types=EVENTS,device_class="button")
         elif t==3:
             v=i.get("occupied")
@@ -169,6 +174,9 @@ def request(route,comp,payload):
             if any(type(x) is not int or not 0<=x<=255 for x in v): raise ValueError("Invalid color")
             d["rgbwaf"]=[round(x*254/255) for x in v]
         return "/api/lab/run",d,60
+    if k=="feedback" and payload=="PRESS":
+        d.update(mode="advanced",action="feedback_mqtt",controller_id=route["controller_id"],address=route["address"],instance=route["instance"],value=route["value"],confirm=True)
+        return "/api/lab/run",d,20
     if k=="advanced_read" and payload=="PRESS":
         d.update(mode="advanced",action=route["action"],uid=route["uid"],address=route["address"],controller_id=route["controller_id"],bank=route.get("bank"))
         return "/api/lab/run",d,60

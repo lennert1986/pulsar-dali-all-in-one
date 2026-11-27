@@ -8,7 +8,7 @@ def change(old,new):
     global s
     if old not in s: raise RuntimeError("Missing patch anchor: "+repr(old))
     s=s.replace(old,new,1)
-s=s.replace("0.12.0","0.21.3").replace("Pulsar DALI Control 0.21.3","Pulsar DALI All-in-One 0.21.3")
+s=s.replace("0.12.0","0.21.4").replace("Pulsar DALI Control 0.21.4","Pulsar DALI All-in-One 0.21.4")
 change('    remote_api_enabled: bool = False','    remote_api_enabled: bool = False\n    local_dali_enabled: bool = True')
 change('        led_enabled=bool(data.get("led_enabled", True)),','        led_enabled=bool(data.get("led_enabled", True)) and bool(data.get("local_dali_enabled", True)),')
 change('        remote_api_enabled=bool(data.get("remote_api_enabled", False)),','        remote_api_enabled=bool(data.get("remote_api_enabled", False)),\n        local_dali_enabled=bool(data.get("local_dali_enabled", True)),')
@@ -117,6 +117,10 @@ change('def remote_controller_request(controller: dict, method: str, path: str, 
 
 def _remote_controller_request(controller: dict, method: str, path: str, data: dict | None = None, timeout: float = 30.0) -> dict:''')
 change('Discovery(controller,settings,log)', 'Discovery(controller,settings,log,pairing.current().role)')
+
+
+change('    maintenance_worker.start()\n    from discovery import Discovery','    maintenance_worker.start()\n    from button_bindings import Worker as ButtonWorker\n    button_worker=ButtonWorker(controller,log)\n    button_worker.start()\n    from discovery import Discovery')
+change('        maintenance_worker.stop()\n        bridge.stop()','        button_worker.stop()\n        maintenance_worker.stop()\n        bridge.stop()')
 
 compile(s,"pulsar_dali_control.py","exec")
 out=pathlib.Path(sys.argv[1])

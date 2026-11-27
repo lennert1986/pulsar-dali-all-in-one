@@ -8,7 +8,7 @@ def change(old,new):
     global s
     if old not in s: raise RuntimeError("Missing patch anchor: "+repr(old))
     s=s.replace(old,new,1)
-s=s.replace("0.12.0","0.21.1").replace("Pulsar DALI Control 0.21.1","Pulsar DALI All-in-One 0.21.1")
+s=s.replace("0.12.0","0.21.2").replace("Pulsar DALI Control 0.21.2","Pulsar DALI All-in-One 0.21.2")
 change('    remote_api_enabled: bool = False','    remote_api_enabled: bool = False\n    local_dali_enabled: bool = True')
 change('        led_enabled=bool(data.get("led_enabled", True)),','        led_enabled=bool(data.get("led_enabled", True)) and bool(data.get("local_dali_enabled", True)),')
 change('        remote_api_enabled=bool(data.get("remote_api_enabled", False)),','        remote_api_enabled=bool(data.get("remote_api_enabled", False)),\n        local_dali_enabled=bool(data.get("local_dali_enabled", True)),')
@@ -107,6 +107,16 @@ change(old_status,new_status)
 change('                    registry = load_controller_registry()\n                    registry[cid] = item\n                    save_controller_registry(registry)\n                log(f"Central management: added', '                    registry = load_controller_registry()\n                    if not item.get("remote_controller_id") or item["remote_controller_id"] == ctl.controller_id or any(x.get("remote_controller_id") == item["remote_controller_id"] for x in registry.values()):\n                        raise ValueError("Controller already registered or invalid identity")\n                    registry[cid] = item\n                    save_controller_registry(registry)\n                log(f"Central management: added')
 # Never silently adopt a different identity returned by an endpoint.
 change('        return payload\n    finally:', '        if controller.get("remote_controller_id") and payload.get("controller_id") and payload["controller_id"] != controller["remote_controller_id"]:\n            raise ValueError("Remote controller identity mismatch")\n        return payload\n    finally:')
+
+
+# Exclusive topology: master OR subordinate, never both.
+change('    server = Server(', '    pairing.configure(controller.controller_id,load_controller_registry,CONTROLLERS_LOCK,settings.remote_legacy_token_enabled)\n    server = Server(')
+change('def remote_controller_request(controller: dict, method: str, path: str, data: dict | None = None, timeout: float = 30.0) -> dict:', '''def remote_controller_request(controller: dict, method: str, path: str, data: dict | None = None, timeout: float = 30.0) -> dict:
+    with pairing.current().outbound():
+        return _remote_controller_request(controller,method,path,data,timeout)
+
+def _remote_controller_request(controller: dict, method: str, path: str, data: dict | None = None, timeout: float = 30.0) -> dict:''')
+change('Discovery(controller,settings,log)', 'Discovery(controller,settings,log,pairing.current().role)')
 
 compile(s,"pulsar_dali_control.py","exec")
 out=pathlib.Path(sys.argv[1])

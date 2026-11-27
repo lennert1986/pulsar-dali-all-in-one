@@ -18,14 +18,16 @@ def parse(raw,host,own):
         if d.get("port")!=8443:return None
         name=d.get("name","")
         version=d.get("version","")
+        role=d.get("role","unknown")
+        if role not in ("free","master","child","joining","conflict","legacy_receiver"):role="unknown"
         return {"controller_id":uid,"host":str(addr),"port":8443,"verified":False,
-                "name":name[:80] if isinstance(name,str) else "",
+                "role":role,"name":name[:80] if isinstance(name,str) else "",
                 "version":version[:32] if isinstance(version,str) else ""}
     except (ValueError,TypeError,UnicodeError):return None
 class Discovery:
-    def __init__(self,controller,settings,log):
+    def __init__(self,controller,settings,log,role=None):
         self.uid=str(controller.controller_id);self.log=log
-        self.name=socket.gethostname()
+        self.name=socket.gethostname();self.role=role or (lambda:"unknown")
         try:o=json.loads(Path("/data/options.json").read_text())
         except (OSError,ValueError):o={}
         self.enabled=bool(o.get("controller_discovery_enabled",False))
@@ -60,10 +62,12 @@ class Discovery:
                     s.setsockopt(socket.IPPROTO_IP,socket.IP_ADD_MEMBERSHIP,socket.inet_aton(GROUP)+socket.inet_aton("0.0.0.0"))
                     s.setsockopt(socket.IPPROTO_IP,socket.IP_MULTICAST_TTL,1)
                     s.settimeout(0.5);self.error="";next_send=0
-                    payload=json.dumps({"protocol":MAGIC,"controller_id":self.uid,"port":8443,"name":self.name,"version":"0.21.1"}).encode()
                     while not self.stop_event.is_set():
                         now=time.monotonic()
                         if self.advertise and now>=next_send:
+                            try:role=self.role()
+                            except Exception:role="conflict"
+                            payload=json.dumps({"protocol":MAGIC,"controller_id":self.uid,"port":8443,"name":self.name,"version":"0.21.2","role":role}).encode()
                             s.sendto(payload,(GROUP,PORT));next_send=now+15
                         try:
                             raw,source=s.recvfrom(1025);self.accept(raw,source[0],time.monotonic())

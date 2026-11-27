@@ -53,3 +53,7 @@ Configuration shows name, basic levels, fade and supported dimming curve directl
 ## 0.18.0 administration
 
 New Energy, Emergency and Maintenance pages share the navigation. Energy sums only fresh valid D4i samples, with per-bus coverage; missing data is not zero. Emergency command history and resource/transaction counters are local only; remote gear snapshots remain available. No safety certification or measured bus-utilization claim. Optional daily cached configuration backup (auto_backup_enabled, default false); existing backup storage policy applies. Restore checks group and scene readback and reports partial changes. Fade time/rate choices show nominal values; level percentage is raw code percentage, not light output. XY, feedback LEDs and HA identity transfer remain unimplemented; advanced hardware features remain experimental.
+
+## 0.18.1
+
+DT8 configuration includes RGB colour picker and Kelvin slider, without sending commands while editing. Unknown channel values remain blank. Event mask editor exposes individual raw bits, without guessing their instance-specific meanings. Named memory banks and manual bank selection. Daily backup timestamp persists across restarts. Restore chooses safe min/max write order. No new DALI opcodes, XY/feedback and HA identity transfer remain unimplemented.

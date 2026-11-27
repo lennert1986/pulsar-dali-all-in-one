@@ -401,7 +401,14 @@ def restore_plan(c,b,a,g,d):
     try:
         # Widen maximum before changing minimum; physical minimum and gear
         # limits may reject values. Report partial writes, never claim rollback.
-        for k in ("max_level","min_level","power_on_level","system_failure_level"):
+        order=["max_level","min_level","power_on_level","system_failure_level"]
+        # When reducing max below the current minimum, lower min first.
+        if "max_level" in plan and "min_level" in plan:
+            current_min=query(c,b,a,0xA2)
+            if current_min is None: raise RuntimeError("Cannot verify current minimum level")
+            if plan["min_level"]>plan["max_level"]: raise ValueError("Invalid backup min/max range")
+            if plan["max_level"]<current_min: order[:2]=["min_level","max_level"]
+        for k in order:
             if k in plan:
                 r=c.set_config(b,a,k,plan[k])
                 if r.get("readback")!=plan[k]: raise RuntimeError("Readback mismatch "+k)

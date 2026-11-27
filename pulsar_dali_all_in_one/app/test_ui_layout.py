@@ -84,3 +84,7 @@ assert.equal(energyStats([g],2000).power,null);
 assert.equal(energyStats([{...g,address_conflict:true}],1100).power,null);
 assert.equal(energyStats([{...g,power_w:undefined}],1100).power,null);
 """],check=True)
+
+assert 'picker.type="color"' in pages["configuration"]
+assert 'slider.type="range"' in pages["configuration"]
+assert 'className="event-bits"' in pages["configuration"]

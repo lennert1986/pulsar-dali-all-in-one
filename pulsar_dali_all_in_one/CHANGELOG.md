@@ -1,3 +1,8 @@
+# 0.18.1
+- DT8 graphical RGB and Kelvin controls; explicit save retained.
+- DALI-2 raw event mask bit editor and named memory banks.
+- Persistent automatic backup timing and improved restore min/max order.
+
 # 0.18.0
 - Dedicated energy, emergency and maintenance dashboards with shared navigation.
 - D4i coverage and stale-data handling, local resource and UART transaction statistics.

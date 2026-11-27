@@ -337,20 +337,51 @@ function advancedFields(){
    const update=()=>{const n=p.value;v.min=n==="fade_rate"?1:0;v.max=n==="extended_fade_time"?79:15;v.value=g[n]??"";$("hint").textContent=n==="extended_fade_time"?"Rå DALI-kode: multiplikator og basis. 0 deaktiverer.":"Kodet DALI-værdi (ikke sekunder). Efter skrivning læses parameteren tilbage.";};
    p.onchange=update;update();
  }else if(a==="curve"){select("value","Dimmekurve",g.dimming_curve??"",[["","Vælg dimmekurve"],[0,"Logaritmisk"],[1,"Lineær"]]);}
- else if(a==="memory"){numeric("bank","Memory bank",0,0,255);$("hint").textContent="Bank 0: identifikation · 1: producentdata · 202–204: energi · 205–206: diagnostik · 207: rådata. D4i kræver understøttelse.";}
+ else if(a==="memory"){const banks=[[0,"0 · Identifikation"]];if(g.last_memory_bank>=1)banks.push([1,"1 · Producentdata"]);for(const [n,label] of [[202,"Aktiv energi"],[203,"Tilsyneladende energi"],[204,"Udgangsenergi"],[205,"Driverdiagnostik"],[206,"Lyskildediagnostik"],[207,"Rådata"]])if(g.last_memory_bank>=n)banks.push([n,n+" · "+label]);banks.push([-1,"Anden bank (rånummer)"]);const chosen=select("bank_choice","Memory bank",0,banks);const raw=numeric("bank","Banknummer",0,0,255);raw.parentElement.hidden=true;chosen.onchange=()=>{raw.parentElement.hidden=chosen.value!=="-1";if(chosen.value!=="-1")raw.value=chosen.value;};$("hint").textContent="Bank 0: identifikation · 1: producentdata · 202–204: energi · 205–206: diagnostik · 207: rådata. D4i kræver understøttelse.";}
  else if(a==="name"){text("name","Armaturets navn",g.name||"");$("hint").textContent="Navnet gemmes i controlleren; eksisterende MQTT-identitet bevares.";}
  else if(a==="color"){
    const choices=[];if((g.colour_features&2)&&g.min_kelvin&&g.max_kelvin)choices.push(["kelvin","Tunable White (Kelvin)"]);if(g.rgbwaf_channels>=3&&g.rgbwaf_channels<=6)choices.push(["rgbwaf","RGB / RGBWAF"]);if(!choices.length){$("hint").textContent="Læs egenskaber først. Ingen understøttet farvetype er bekræftet endnu.";return;}const cap=select("color_kind","Farvetype",choices[0][0],choices);
    const area=document.createElement("div");area.className="fields";root.append(area);
-   const update=()=>{area.replaceChildren();if(cap.value==="kelvin"){field(area,"kelvin","Farvetemperatur (K)","number",g.color_temp_kelvin??Math.max(g.min_kelvin||1000,Math.min(3000,g.max_kelvin||20000)),{min:g.min_kelvin||1000,max:g.max_kelvin||20000});}
-    else {const n=Number(g.rgbwaf_channels);const channels=field(area,"channels","Antal kanaler","select",n,{choices:[[n,({3:"RGB",4:"RGBW",5:"RGBWA",6:"RGBWAF"})[n]]]});const levels=document.createElement("div");levels.className="fields";area.append(levels);const make=()=>{levels.replaceChildren();for(let i=0;i<Number(channels.value);i++)field(levels,"rgb_"+i,["Rød","Grøn","Blå","Hvid","Amber","Fri kanal"][i],"number",g.rgbwaf?.[i]??0,{min:0,max:254});};channels.onchange=make;make();}
-    $("hint").textContent="DT8-egenskaber og grænser kontrolleres på den fysiske driver. Læs egenskaber først.";};
+   const update=()=>{
+    area.replaceChildren();
+    if(cap.value==="kelvin"){
+      const lo=g.min_kelvin,hi=g.max_kelvin;
+      const number=field(area,"kelvin","Farvetemperatur (K)","number",g.color_temp_kelvin??"",{min:lo,max:hi});
+      const control=document.createElement("div");control.className="color-control";
+      const slider=document.createElement("input");slider.type="range";slider.min=lo;slider.max=hi;slider.step=1;slider.value=g.color_temp_kelvin??Math.round((lo+hi)/2);slider.setAttribute("aria-label","Farvetemperatur");
+      const gradient=document.createElement("div");gradient.className="temperature-gradient";
+      const labels=document.createElement("div");labels.className="color-labels";labels.textContent=lo+" K · Varm hvid / Kold hvid · "+hi+" K";
+      slider.oninput=()=>{number.value=slider.value;};number.oninput=()=>{if(number.checkValidity())slider.value=number.value;};
+      control.append(labels,gradient,slider);area.append(control);
+    }else{
+      const n=Number(g.rgbwaf_channels);
+      const channels=field(area,"channels","Antal kanaler","select",n,{choices:[[n,({3:"RGB",4:"RGBW",5:"RGBWA",6:"RGBWAF"})[n]]]});
+      const levels=document.createElement("div");levels.className="fields";area.append(levels);
+      const inputs=[];for(let i=0;i<n;i++)inputs.push(field(levels,"rgb_"+i,["Rød","Grøn","Blå","Hvid","Amber","Fri kanal"][i],"number",g.rgbwaf?.[i]??"",{min:0,max:254}));
+      const visual=document.createElement("label");visual.className="color-control";visual.textContent="RGB-farvevælger (kun RGB-kanaler)";
+      const picker=document.createElement("input");picker.type="color";picker.value="#ffffff";
+      const hex=()=>"#"+inputs.slice(0,3).map(e=>Math.round(Number(e.value)*255/254).toString(16).padStart(2,"0")).join("");
+      if(inputs.slice(0,3).every(e=>e.value!==""&&e.checkValidity()))picker.value=hex();
+      picker.oninput=()=>{for(let i=0;i<3;i++)inputs[i].value=String(Math.round(parseInt(picker.value.slice(1+i*2,3+i*2),16)*254/255));};
+      for(const e of inputs.slice(0,3))e.oninput=()=>{if(inputs.slice(0,3).every(v=>v.value!==""&&v.checkValidity()))picker.value=hex();};
+      visual.append(picker);area.append(visual);
+    }
+    $("hint").textContent="Farvevælgeren ændrer kun formularen. Den valgte farve sendes først, når du bekræfter handlingen.";
+   };
    cap.onchange=update;update();
  }else if(a==="input_config"){
    const rows=inputFields.filter(x=>x.length===4||x[4]===g.instance_type);
    const p=select("parameter","Sensorparameter","event_filter",rows.map(x=>[x[0],x[1]]));
-   const v=text("value","Værdi",g.event_filter??84);
-   const update=()=>{const row=rows.find(x=>x[0]===p.value);v.value=g[p.value]??(p.value==="event_filter"?84:0);$("hint").textContent="Tilladt råværdi "+row[2]+"–"+row[3]+". Eventfilter kan indtastes i hex.";};p.onchange=update;update();
+   const v=text("value","Værdi",g.event_filter??"");
+   const bits=document.createElement("div");bits.className="event-bits";root.append(bits);
+   const rebuild=()=>{
+     bits.replaceChildren();bits.hidden=p.value!=="event_filter";if(bits.hidden)return;
+     const valid=/^(?:\d+|0x[0-9a-f]+)$/i.test(v.value)&&Number(v.value)>=0&&Number(v.value)<=16777215;
+     if(!valid){bits.append(document.createTextNode("Aflæs eller indtast en gyldig eventmaske først."));return;}
+     const mask=Number(v.value);
+     for(let i=0;i<24;i++){const label=document.createElement("label"),box=document.createElement("input");box.type="checkbox";box.checked=Boolean(mask&(1<<i));box.onchange=()=>{const old=Number(v.value);v.value=String(box.checked?old|(1<<i):old&~(1<<i));};label.append(box,document.createTextNode("Bit "+i));bits.append(label);}
+   };
+   const update=()=>{const row=rows.find(x=>x[0]===p.value);v.value=g[p.value]??"";$("hint").textContent="Tilladt råværdi "+row[2]+"–"+row[3]+". Eventfilter kan indtastes i hex. Bitbetydning afhænger af instancetype.";rebuild();};p.onchange=update;v.oninput=rebuild;update();
  }else if(a.startsWith("restore")){
    select("filename","Backup","",[["","Vælg backup"]]);numeric("source_bus","Kildebus",Number($("bus").value),1,3);numeric("source_address","Kildeadresse",g.address??0,0,63);add("replacement","Overfør til erstatningsarmatur","checkbox",false);
    $("hint").textContent=a==="restore_preview"?"Læs den planlagte ændring uden at skrive til armaturet.":"Kontrollér restore-planen først. Delvise writes kan ikke rulles tilbage automatisk.";loadBackups();
@@ -370,6 +401,7 @@ function paramsFromForm(){
    else if(e.type==="number"||["source_bus","source_address","channels"].includes(id)||(a==="curve"&&id==="value"))out[id]=Number(e.value);
    else out[id]=e.value.trim();
  }
+ if(a==="memory")delete out.bank_choice;
  if(a==="fade"&&out.parameter==="extended_fade_time"&&(out.value&15)>4)throw Error("Reserveret extended fade kode");
  if(a==="input_config"){const row=inputFields.find(x=>x[0]===out.parameter);if(!/^(?:\d+|0x[0-9a-f]+)$/i.test(out.value))throw Error("Indtast et heltal");out.value=Number(out.value);if(!row||!Number.isInteger(out.value)||out.value<row[2]||out.value>row[3])throw Error("Parameter uden for område");}
  if(a==="color"){if(out.color_kind==="rgbwaf"){out.rgbwaf=Array.from({length:out.channels},(_,i)=>out["rgb_"+i]);for(const k of Object.keys(out))if(k.startsWith("rgb_"))delete out[k];delete out.channels;}delete out.color_kind;}

@@ -44,7 +44,7 @@ def candidates(snapshot,o,now,attempts):
 class Worker:
     def __init__(self,c,log,o=None):
         self.c=c; self.log=log; self.o=options() if o is None else o
-        self.stop_event=threading.Event(); self.attempts={}; self.thread=None; self.next_backup=0
+        self.stop_event=threading.Event(); self.attempts={}; self.thread=None; self.next_backup=self.backup_due()
     def start(self):
         if not self.c.settings.local_dali_enabled: return
         self.thread=threading.Thread(target=self.run,daemon=True,name="DALI-maintenance")
@@ -81,6 +81,10 @@ class Worker:
             self.log("Advanced read deferred: "+str(e))
             return False
         finally: c.operation_lock.release()
+    def backup_due(self):
+        try:
+            return float(Path("/data/automatic_backup_at").read_text())+86400
+        except (OSError,ValueError): return 0
     def auto_backup(self):
         if not self.o.get("auto_backup_enabled",False) or time.time()<self.next_backup: return
         c=self.c
@@ -88,7 +92,11 @@ class Worker:
         try:
             if c.scan_running: return
             c.create_backup([1,2,3],"automatic-snapshot")
-            self.next_backup=time.time()+86400
+            now=time.time()
+            self.next_backup=now+86400
+            stamp=Path("/data/automatic_backup_at")
+            tmp=stamp.with_suffix(".tmp")
+            tmp.write_text(str(now));tmp.replace(stamp)
         except Exception as e:
             self.next_backup=time.time()+3600
             self.log("Automatic backup deferred: "+str(e))

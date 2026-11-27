@@ -20,5 +20,6 @@ jobs:
           python3 app/test_bridge.py
           python3 app/test_hardware_profile.py
           python3 app/test_lab_checks.py
+          python3 app/test_advanced.py
           python3 -c 'from pathlib import Path; import sys; sys.path.insert(0,"app"); from test_lab import PAGE; Path("/tmp/testlab.js").write_text(PAGE.split("<script>",1)[1].split("</script>",1)[0])'
           node --check /tmp/testlab.js

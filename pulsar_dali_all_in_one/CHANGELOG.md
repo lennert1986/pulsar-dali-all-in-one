@@ -1,3 +1,9 @@
+# 0.16.0 experimental
+- Advanced web configuration: fade, curve, DT8, memory/identity, sampled D4i, input commissioning, restore and manual DT1 tests.
+- MQTT additional properties and sampled diagnostics; existing IDs and brightness modes retained.
+- Memory Lab handles missing bytes and all bank numbers.
+- Physical testing pending for new writes.
+
 # 0.15.0 development preview
 - Read-only DALI Test Lab, local and remote controller selection, firmware, basic parameters, fade codes, DT6/DT8/DT1 capability queries, DALI-2 input diagnostics, raw memory-bank reads, telegram tracing and JSON export.
 - Advanced writes remain disabled and in development.

@@ -3,7 +3,7 @@ import hashlib,json,os,queue,re,threading,time,urllib.request
 from pathlib import Path
 import paho.mqtt.client as mqtt
 
-PARAMS={"min_level":"Minimum level","max_level":"Maximum level","power_on_level":"Power-on level","system_failure_level":"System failure level"}
+PARAMS={"min_level":"Minimum level","max_level":"Maximum level","power_on_level":"Power-on level","system_failure_level":"System failure level","fade_time":"Fade time code","fade_rate":"Fade rate code","extended_fade_time":"Extended fade code"}
 EVENTS=["button_pressed","button_released","short_press","double_press","long_press_start","long_press_repeat","long_press_stop","button_free","button_stuck","button_event"]
 def key(s):
     s=str(s)
@@ -43,6 +43,10 @@ def catalog(s,name,prefix,bridge_av):
     for g in gear:
         b,a=g["bus"],g["address"]; uid=str(g.get("ha_uid") or f"{b}_{a}"); suf="gear_"+uid
         d=dev(suf,f"DALI {b} - {a}","Control gear"); ok=good(g); level=g.get("actual_level")
+        if g.get("name"): d["name"]=name+" "+g["name"]
+        if g.get("driver_firmware"): d["sw_version"]=g["driver_firmware"]
+        if g.get("driver_hardware"): d["hw_version"]=g["driver_hardware"]
+        if g.get("identification_raw"): d["serial_number"]=g["identification_raw"]
         route=dict(kind="gear",bus=b,address=a,uid=uid)
         if g.get("entity_kind")=="switch":
             add("switch",suf+"_switch",d,"Relay",ok and level is not None,"ON" if level else "OFF",route,retain=False)
@@ -50,8 +54,34 @@ def catalog(s,name,prefix,bridge_av):
         for param,label in PARAMS.items():
             value=g.get(param)
             if value is not None:
-                maximum=254 if param in ("min_level","max_level") else 255
-                add("number",suf+"_"+param,d,label,ok,str(value),dict(route,kind="parameter",parameter=param,maximum=maximum),min=0,max=maximum,step=1,mode="box",entity_category="config",enabled_by_default=False,retain=False)
+                maximum={"min_level":254,"max_level":254,"fade_time":15,"fade_rate":15,"extended_fade_time":79}.get(param,255)
+                minimum=1 if param=="fade_rate" else 0
+                add("number",suf+"_"+param,d,label,ok,str(value),dict(route,kind="parameter",parameter=param,maximum=maximum,minimum=minimum),min=minimum,max=maximum,step=1,mode="box",entity_category="config",enabled_by_default=False,retain=False)
+        for field,label,unit,device_class,state_class,bank in (
+            ("gtin","GTIN",None,None,None,None),("identification_raw","Identification",None,None,None,None),
+            ("driver_firmware","Driver firmware",None,None,None,None),
+            ("energy_kwh","Sampled active energy","kWh","energy","total_increasing",202),
+            ("power_w","Sampled active power","W","power","measurement",202),
+            ("gear_operation_seconds","Sampled gear operation time","s","duration","total_increasing",205),
+            ("gear_start_counter","Sampled gear starts",None,None,"total_increasing",205),
+            ("gear_temperature_c","Sampled gear temperature","°C","temperature","measurement",205),
+            ("light_on_seconds","Sampled light on time","s","duration","total_increasing",206),
+            ("light_temperature_c","Sampled light temperature","°C","temperature","measurement",206),
+            ("battery_percent","Last read emergency battery","%","battery",None,None),
+            ("emergency_failure","Last read emergency failure byte",None,None,None,None)):
+            value=g.get(field)
+            if value is not None:
+                extra=dict(entity_category="diagnostic",enabled_by_default=False)
+                if unit: extra["unit_of_measurement"]=unit
+                if device_class: extra["device_class"]=device_class
+                if state_class: extra["state_class"]=state_class
+                fresh=bank is None or time.time()-g.get("sampled_bank_"+str(bank),0)<900
+                add("sensor",suf+"_"+field,d,label,ok and fresh,str(value),**extra)
+        for action,label,bank in [("inspect","Read advanced properties",None),("memory","Read identification",0)]+[
+            ("memory",f"Read memory bank {n}",n) for n in (202,205,206) if g.get("last_memory_bank",0)>=n]:
+            add("button",suf+"_read_"+str(bank if bank is not None else action),d,label,ok,
+                route=dict(route,kind="advanced_read",action=action,bank=bank,controller_id=cid),
+                payload_press="PRESS",entity_category="config",enabled_by_default=False)
         for field in ("control_gear_failure","lamp_failure","limit_error"):
             value=g.get(field)
             add("binary_sensor",suf+"_"+field,d,field.replace("_"," ").capitalize(),ok and value is not None,None if value is None else "ON" if value else "OFF",device_class="problem",entity_category="diagnostic",enabled_by_default=False)
@@ -99,9 +129,12 @@ def request(route,comp,payload):
         return "/api/"+k+"/control",d,15
     if k=="parameter":
         v=float(payload)
-        if not v.is_integer() or not 0<=v<=route["maximum"]: raise ValueError("Invalid parameter")
+        if not v.is_integer() or not route.get("minimum",0)<=v<=route["maximum"]: raise ValueError("Invalid parameter")
         d.update(parameter=route["parameter"],value=int(v))
         return "/api/gear/config",d,30
+    if k=="advanced_read" and payload=="PRESS":
+        d.update(mode="advanced",action=route["action"],uid=route["uid"],address=route["address"],controller_id=route["controller_id"],bank=route.get("bank"))
+        return "/api/lab/run",d,60
     if k=="identify" and payload=="PRESS": return "/api/gear/identify",d,15
     if k=="scene" and payload=="ON":
         d["scene"]=route["scene"]; return "/api/scene/activate",d,15

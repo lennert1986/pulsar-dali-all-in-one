@@ -4,6 +4,7 @@ Experimental. Never auto-run commissioning, reset or emergency tests.
 All new operations are serialized with scans and ordinary commands.
 """
 import json
+import math
 import time
 from pathlib import Path
 
@@ -218,14 +219,14 @@ def read_memory_set(c,b,a,banks):
     out.update(memory_banks=data,data_read_at=time.time())
     return out
 
-def color_word(c,b,a,selector):
+def color_word(c,b,a,selector,allow_zero=False):
     dtr(c,b,0,selector)
     hi=ext(c,b,a,8,0xFA)
     if hi is None: return None
     lo=query(c,b,a,0x98)
     if lo is None: return None
     v=hi*256+lo
-    return v if 0<v<65535 else None
+    return v if (0 if allow_zero else 1)<=v<65535 else None
 
 def color_byte(c,b,a,selector):
     dtr(c,b,0,selector)
@@ -239,6 +240,9 @@ def color_state(c,b,a):
     out={"colour_features":feature,"colour_status":status}
     channels=(feature>>5)&7
     out["rgbwaf_channels"]=channels if channels<=6 else 0
+    if feature&1 and status is not None and status&0x10:
+        x=color_word(c,b,a,0,True); y=color_word(c,b,a,1,True)
+        if x is not None and y is not None and x+y<=65536: out["xy"]=[x/65536,y/65536]
     if feature&2:
         cool=color_word(c,b,a,0x80); warm=color_word(c,b,a,0x82)
         if cool and warm and cool<=warm:
@@ -254,7 +258,16 @@ def color_state(c,b,a):
 def color_set(c,b,a,data):
     caps=color_state(c,b,a)
     if not caps: raise ValueError("No DT8 colour features")
-    if "kelvin" in data:
+    if "xy" in data:
+        if not caps.get("colour_features",0)&1: raise ValueError("XY not supported")
+        xy=data["xy"]
+        if not isinstance(xy,list) or len(xy)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or not 0<=v<=65534/65536 for v in xy) or sum(xy)>1:
+            raise ValueError("Invalid CIE XY coordinates")
+        for op,value in zip((0xE0,0xE1),xy):
+            raw=round(value*65536)
+            dtr(c,b,0,raw&255);dtr(c,b,1,raw>>8)
+            ext(c,b,a,8,op,"once")
+    elif "kelvin" in data:
         if not (caps.get("colour_features",0)&2) or not caps.get("min_kelvin") or not caps.get("max_kelvin"):
             raise ValueError("No verified Tc range")
         k=integer(data["kelvin"],caps["min_kelvin"],caps["max_kelvin"],"kelvin")
@@ -273,12 +286,14 @@ def color_set(c,b,a,data):
             for i in range(3): dtr(c,b,i,v[i+3] if i+3<n else 255)
             ext(c,b,a,8,0xEC,"once")
     else:
-        raise ValueError("Supply kelvin or rgbwaf")
+        raise ValueError("Supply xy, kelvin or rgbwaf")
     ext(c,b,a,8,0xE2,"once")
     result=color_state(c,b,a)
     with c.cache_lock:
-        for k in ("color_temp_kelvin","rgbwaf"): c.gear[b][a].pop(k,None)
+        for k in ("color_temp_kelvin","rgbwaf","xy"): c.gear[b][a].pop(k,None)
     cache(c,b,a,result)
+    if "xy" in data and ("xy" not in result or any(abs(x-y)>2/65536 for x,y in zip(data["xy"],result["xy"]))):
+        raise RuntimeError("XY readback mismatch or gamut clipping")
     return result
 
 def emergency_read(c,b,a):
@@ -503,7 +518,7 @@ def execute(c,d):
                 if level is not None: integer(level,0,254,"brightness")
                 if state=="OFF": r=c.set_level(b,a,0)
                 else:
-                    r=color_set(c,b,a,d) if "kelvin" in d or "rgbwaf" in d else {}
+                    r=color_set(c,b,a,d) if "kelvin" in d or "rgbwaf" in d or "xy" in d else {}
                     if level is not None or not g.get("actual_level"):
                         r.update(c.set_level(b,a,max(1,level if level is not None else 254)))
         elif action=="reset":
@@ -535,7 +550,7 @@ def execute(c,d):
 # addresses: avoids turning ordinary scans into hour-long scans.
 PRESERVE=("name","device_types","fade_time","fade_rate","extended_fade_time","dimming_curve",
           "colour_features","colour_status","rgbwaf_channels","min_kelvin","max_kelvin",
-          "color_temp_kelvin","rgbwaf","gtin","identification_raw","memory_banks",
+          "color_temp_kelvin","rgbwaf","xy","gtin","identification_raw","memory_banks",
           "luminaire_bank1","data_read_at","battery_raw","battery_percent","duration_result",
           "emergency_mode","emergency_failure","emergency_status","energy_kwh","power_w",
           "energy_apparent_kwh","power_apparent_w","energy_loadside_kwh","power_loadside_w",

@@ -1,3 +1,7 @@
+# 0.20.3
+- Experimental DT8 CIE XY commands, readback, configuration and MQTT JSON light integration.
+- Existing light unique ID retained.
+
 # 0.20.2
 - Opt-in synchronized application UTC via registered HTTPS reference controller.
 - Monotonic holdover, RTT rejection, clock diagnostics.

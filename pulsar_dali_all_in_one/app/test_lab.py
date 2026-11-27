@@ -340,11 +340,13 @@ function advancedFields(){
  else if(a==="memory"){const banks=[[0,"0 · Identifikation"]];if(g.last_memory_bank>=1)banks.push([1,"1 · Producentdata"]);for(const [n,label] of [[202,"Aktiv energi"],[203,"Tilsyneladende energi"],[204,"Udgangsenergi"],[205,"Driverdiagnostik"],[206,"Lyskildediagnostik"],[207,"Rådata"]])if(g.last_memory_bank>=n)banks.push([n,n+" · "+label]);banks.push([-1,"Anden bank (rånummer)"]);const chosen=select("bank_choice","Memory bank",0,banks);const raw=numeric("bank","Banknummer",0,0,255);raw.parentElement.hidden=true;chosen.onchange=()=>{raw.parentElement.hidden=chosen.value!=="-1";if(chosen.value!=="-1")raw.value=chosen.value;};$("hint").textContent="Bank 0: identifikation · 1: producentdata · 202–204: energi · 205–206: diagnostik · 207: rådata. D4i kræver understøttelse.";}
  else if(a==="name"){text("name","Armaturets navn",g.name||"");$("hint").textContent="Navnet gemmes i controlleren; eksisterende MQTT-identitet bevares.";}
  else if(a==="color"){
-   const choices=[];if((g.colour_features&2)&&g.min_kelvin&&g.max_kelvin)choices.push(["kelvin","Tunable White (Kelvin)"]);if(g.rgbwaf_channels>=3&&g.rgbwaf_channels<=6)choices.push(["rgbwaf","RGB / RGBWAF"]);if(!choices.length){$("hint").textContent="Læs egenskaber først. Ingen understøttet farvetype er bekræftet endnu.";return;}const cap=select("color_kind","Farvetype",choices[0][0],choices);
+   const choices=[];if(g.colour_features&1)choices.push(["xy","CIE XY"]);if((g.colour_features&2)&&g.min_kelvin&&g.max_kelvin)choices.push(["kelvin","Tunable White (Kelvin)"]);if(g.rgbwaf_channels>=3&&g.rgbwaf_channels<=6)choices.push(["rgbwaf","RGB / RGBWAF"]);if(!choices.length){$("hint").textContent="Læs egenskaber først. Ingen understøttet farvetype er bekræftet endnu.";return;}const cap=select("color_kind","Farvetype",choices[0][0],choices);
    const area=document.createElement("div");area.className="fields";root.append(area);
    const update=()=>{
     area.replaceChildren();
-    if(cap.value==="kelvin"){
+    if(cap.value==="xy"){
+      for(const [i,k] of [[0,"x"],[1,"y"]]){const e=field(area,"xy_"+k,"CIE "+k,"number",g.xy?.[i]??"",{min:0,max:65534/65536});e.step="any";}
+    }else if(cap.value==="kelvin"){
       const lo=g.min_kelvin,hi=g.max_kelvin;
       const number=field(area,"kelvin","Farvetemperatur (K)","number",g.color_temp_kelvin??"",{min:lo,max:hi});
       const control=document.createElement("div");control.className="color-control";
@@ -404,7 +406,7 @@ function paramsFromForm(){
  if(a==="memory")delete out.bank_choice;
  if(a==="fade"&&out.parameter==="extended_fade_time"&&(out.value&15)>4)throw Error("Reserveret extended fade kode");
  if(a==="input_config"){const row=inputFields.find(x=>x[0]===out.parameter);if(!/^(?:\d+|0x[0-9a-f]+)$/i.test(out.value))throw Error("Indtast et heltal");out.value=Number(out.value);if(!row||!Number.isInteger(out.value)||out.value<row[2]||out.value>row[3])throw Error("Parameter uden for område");}
- if(a==="color"){if(out.color_kind==="rgbwaf"){out.rgbwaf=Array.from({length:out.channels},(_,i)=>out["rgb_"+i]);for(const k of Object.keys(out))if(k.startsWith("rgb_"))delete out[k];delete out.channels;}delete out.color_kind;}
+ if(a==="color"){if(out.color_kind==="xy"){out.xy=[out.xy_x,out.xy_y];if(out.xy[0]+out.xy[1]>1)throw Error("x + y må ikke overstige 1");delete out.xy_x;delete out.xy_y;}if(out.color_kind==="rgbwaf"){out.rgbwaf=Array.from({length:out.channels},(_,i)=>out["rgb_"+i]);for(const k of Object.keys(out))if(k.startsWith("rgb_"))delete out[k];delete out.channels;}delete out.color_kind;}
  return out;
 }
 function status(s,state=""){ $("status").textContent=s;$("status").dataset.state=state; }

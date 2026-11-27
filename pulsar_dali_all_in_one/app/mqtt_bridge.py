@@ -1,5 +1,5 @@
 """MQTT Discovery for local and TLS-pinned remote Pulsar controllers."""
-import hashlib,json,os,queue,re,threading,time,urllib.request
+import hashlib,json,math,os,queue,re,threading,time,urllib.request
 from pathlib import Path
 import paho.mqtt.client as mqtt
 
@@ -55,11 +55,13 @@ def catalog(s,name,prefix,bridge_av,dt8=False):
             lo=g.get("min_kelvin"); hi=g.get("max_kelvin")
             ct=type(kelvin) is int and type(lo) is int and type(hi) is int and 0<lo<=kelvin<=hi and lo<hi
             rgbok=isinstance(rgb,list) and len(rgb) in (3,4) and all(type(x) is int and 0<=x<=254 for x in rgb)
-            if dt8 and 8 in g.get("device_types",[]) and (ct or rgbok) and type(level) is int and 0<=level<=254:
-                mode="color_temp" if ct else "rgb" if len(rgb)==3 else "rgbw"
+            xy=g.get("xy"); xyok=isinstance(xy,list) and len(xy)==2 and all(type(v) in (int,float) and math.isfinite(v) and 0<=v<=65534/65536 for v in xy) and sum(xy)<=1 and bool((g.get("colour_features") or 0)&1)
+            if dt8 and 8 in g.get("device_types",[]) and (ct or rgbok or xyok) and type(level) is int and 0<=level<=254:
+                mode="xy" if xyok and (g.get("colour_status") or 0)&0x10 else "color_temp" if ct else "rgb" if rgbok and len(rgb)==3 else "rgbw" if rgbok else "xy"
                 state=dict(state="ON" if level else "OFF",brightness=level,color_mode=mode)
                 extra={"supported_color_modes":[mode]}
-                if ct:
+                if mode=="xy": state["color"]={"x":xy[0],"y":xy[1]}
+                elif mode=="color_temp":
                     state["color_temp"]=round(1e6/kelvin)
                     extra.update(min_mireds=round(1e6/hi),max_mireds=round(1e6/lo))
                 else: state["color"]=dict(zip(("r","g","b","w"),[round(v*255/254) for v in rgb]))
@@ -156,6 +158,11 @@ def request(route,comp,payload):
             m=c["color_temp"]
             if type(m) is not int or not 1<=m<=65534: raise ValueError("Invalid color temperature")
             d["kelvin"]=round(1e6/m)
+        if c["state"]=="ON" and "color" in c and route["colour_mode"]=="xy":
+            if not isinstance(c["color"],dict): raise ValueError("Invalid XY object")
+            xy=[c["color"].get(k) for k in ("x","y")]
+            if any(type(v) not in (int,float) or not math.isfinite(v) or not 0<=v<=65534/65536 for v in xy) or sum(xy)>1: raise ValueError("Invalid XY")
+            d["xy"]=xy
         if c["state"]=="ON" and "color" in c and route["colour_mode"] in ("rgb","rgbw"):
             keys=("r","g","b") if route["colour_mode"]=="rgb" else ("r","g","b","w")
             v=[c["color"].get(k) for k in keys]

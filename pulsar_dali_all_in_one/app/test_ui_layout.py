@@ -109,3 +109,5 @@ for bad in (float("nan"),None,0):
 try:clock_sync.sample(0,3,1700000000)
 except ValueError:pass
 else:raise AssertionError("Slow sample accepted")
+
+assert 'CIE XY' in pages["configuration"]

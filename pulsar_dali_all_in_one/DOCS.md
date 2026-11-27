@@ -73,3 +73,7 @@ Enable `controller_discovery_enabled` on each participating controller. Controll
 ## Application clock (0.20.2)
 
 Set `clock_reference_controller_id` to the actual ID of a registered, pinned HTTPS peer using its own system clock. Leave blank on reference. `clock_sync_interval` defaults to 60 seconds. Samples use monotonic round-trip compensation; slow samples are rejected, holdover expires after 900 seconds, and chained references are rejected. Maintenance displays system/application UTC and synchronization status. This creates a separate synchronized application clock exposed by API; existing event timestamps, system clock, TLS, timers and HAOS NTP are not changed. No claim of host clock synchronization. Reference system time must be accurate independently.
+
+## 0.20.3 experimental DT8 XY
+
+Enable `dt8_mqtt_enabled`. Inspect compatible DT8 gear; XY discovery requires an actual valid XY reading and reported support. Uses existing unique ID and JSON light schema. Coordinates are fractions in 1/65536 units, with readback via query colour value. Unsupported coordinates or gamut clipping are reported as mismatches. Only active colour mode is advertised. Physical DT8 verification pending.

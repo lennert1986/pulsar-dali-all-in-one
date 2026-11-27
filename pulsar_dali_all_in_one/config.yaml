@@ -1,5 +1,5 @@
 name: "Pulsar DALI All-in-One"
-version: "0.20.2"
+version: "0.20.3"
 slug: "pulsar_dali_all_in_one"
 description: >-
   Native Glamox/ES-SYSTEM Pulsar DALI gateway with control gear, groups, scenes,

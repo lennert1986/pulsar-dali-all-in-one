@@ -1,0 +1,77 @@
+name: "Pulsar DALI All-in-One"
+version: "0.13.0"
+slug: "pulsar_dali_all_in_one"
+description: >-
+  Native Glamox/ES-SYSTEM Pulsar DALI gateway with control gear, groups, scenes,
+  commissioning/address repair, DALI-2 inputs, local Home Assistant API and optional secured remote HTTPS API.
+arch:
+  - aarch64
+  - amd64
+startup: application
+boot: manual
+init: false
+stage: experimental
+uart: true
+udev: true
+devices:
+  - /dev/i2c-1
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:lightbulb-group
+panel_title: "Pulsar DALI AIO"
+ports:
+  8099/tcp: null
+  8443/tcp: null
+ports_description:
+  8099/tcp: "Local API / Home Assistant ingress (normally not exposed)"
+  8443/tcp: "Remote HTTPS API (only listens when remote_api_enabled is true)"
+services:
+  - mqtt:want
+options:
+  local_dali_enabled: true
+  mqtt_enabled: true
+  mqtt_auto_discovery: true
+  mqtt_host: ""
+  mqtt_port: 1883
+  mqtt_username: ""
+  mqtt_password: ""
+  mqtt_tls: false
+  mqtt_discovery_prefix: "homeassistant"
+  mqtt_publish_local: true
+  mqtt_publish_remote: true
+  dali1_device: "/dev/ttyAMA3"
+  dali2_device: "/dev/ttyAMA4"
+  dali3_device: "/dev/ttyAMA5"
+  baudrate: 115200
+  response_timeout: 1.5
+  led_enabled: true
+  led_pulse_ms: 80
+  i2c_bus: 1
+  mcp_address: 32
+  auto_scan: false
+  poll_interval: 30
+  remote_api_enabled: false
+schema:
+  local_dali_enabled: bool
+  mqtt_enabled: bool
+  mqtt_auto_discovery: bool
+  mqtt_host: str
+  mqtt_port: "int(1,65535)"
+  mqtt_username: str
+  mqtt_password: password
+  mqtt_tls: bool
+  mqtt_discovery_prefix: str
+  mqtt_publish_local: bool
+  mqtt_publish_remote: bool
+  dali1_device: str
+  dali2_device: str
+  dali3_device: str
+  baudrate: "int(1200,3000000)"
+  response_timeout: "float(0.2,10.0)"
+  led_enabled: bool
+  led_pulse_ms: "int(20,1000)"
+  i2c_bus: "int(0,10)"
+  mcp_address: "int(3,119)"
+  auto_scan: bool
+  poll_interval: "int(5,600)"
+  remote_api_enabled: bool

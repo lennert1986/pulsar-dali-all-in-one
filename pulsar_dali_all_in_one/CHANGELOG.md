@@ -1,3 +1,7 @@
+# 0.15.0 development preview
+- Read-only DALI Test Lab, local and remote controller selection, firmware, basic parameters, fade codes, DT6/DT8/DT1 capability queries, DALI-2 input diagnostics, raw memory-bank reads, telegram tracing and JSON export.
+- Advanced writes remain disabled and in development.
+
 # 0.14.0 experimental
 - G3 (CM3 / FTDI interface mapping) and G4 (CM4) hardware profiles.
 - Safe detection failure; manual and remote-only modes.

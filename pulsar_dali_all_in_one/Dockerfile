@@ -10,6 +10,7 @@ COPY app/hardware_profile.py /app/hardware_profile.py
 COPY app/test_lab.py /app/test_lab.py
 COPY app/advanced.py /app/advanced.py
 COPY app/ui_layout.py /app/ui_layout.py
+COPY app/maintenance.py /app/maintenance.py
 COPY run.sh /run.sh
 RUN python3 /build/build_source.py /app/pulsar_dali_control.py && python3 -m py_compile /app/*.py && rm -rf /build && chmod a+x /run.sh
 LABEL io.hass.version="$BUILD_VERSION" io.hass.type="app" io.hass.arch="$BUILD_ARCH"

@@ -8,7 +8,7 @@ def change(old,new):
     global s
     if old not in s: raise RuntimeError("Missing patch anchor: "+repr(old))
     s=s.replace(old,new,1)
-s=s.replace("0.12.0","0.16.1").replace("Pulsar DALI Control 0.16.1","Pulsar DALI All-in-One 0.16.1")
+s=s.replace("0.12.0","0.17.0").replace("Pulsar DALI Control 0.17.0","Pulsar DALI All-in-One 0.17.0")
 change('    remote_api_enabled: bool = False','    remote_api_enabled: bool = False\n    local_dali_enabled: bool = True')
 change('        led_enabled=bool(data.get("led_enabled", True)),','        led_enabled=bool(data.get("led_enabled", True)) and bool(data.get("local_dali_enabled", True)),')
 change('        remote_api_enabled=bool(data.get("remote_api_enabled", False)),','        remote_api_enabled=bool(data.get("remote_api_enabled", False)),\n        local_dali_enabled=bool(data.get("local_dali_enabled", True)),')
@@ -41,7 +41,7 @@ for _operation in (
     setattr(PulsarDali,_operation,_serialise_operation(getattr(PulsarDali,_operation)))
 
 PAGE = r'''+ "'''")
-change('    try:\n        while RUNNING:\n            time.sleep(0.25)\n    finally:\n        server.shutdown()', '    from mqtt_bridge import Bridge\n    bridge = Bridge(controller, settings, log, load_controller_registry, remote_controller_request)\n    server.mqtt_bridge = bridge\n    bridge.start()\n    try:\n        while RUNNING:\n            time.sleep(0.25)\n    finally:\n        bridge.stop()\n        server.shutdown()')
+change('    try:\n        while RUNNING:\n            time.sleep(0.25)\n    finally:\n        server.shutdown()', '    from mqtt_bridge import Bridge\n    bridge = Bridge(controller, settings, log, load_controller_registry, remote_controller_request)\n    server.mqtt_bridge = bridge\n    bridge.start()\n    from maintenance import Worker\n    maintenance_worker=Worker(controller,log)\n    maintenance_worker.start()\n    try:\n        while RUNNING:\n            time.sleep(0.25)\n    finally:\n        maintenance_worker.stop()\n        bridge.stop()\n        server.shutdown()')
 change('        if path.endswith("/api/status") or path == "/api/status":','        if path.endswith("/api/mqtt/status"):\n            bridge = getattr(self.server, "mqtt_bridge", None)\n            self._json({"ok": True, **(bridge.status() if bridge else {"connected": False})})\n            return\n        if path.endswith("/api/status") or path == "/api/status":')
 change('  <div id="banner" class="banner"></div>','  <section class="card"><b>Home Assistant / MQTT</b><div class="subtle" id="mqttStatus">Indlæser…</div><script>async function mqttStatus(){try{const r=await fetch("api/mqtt/status");const j=await r.json();document.getElementById("mqttStatus").textContent=(j.enabled?(j.connected?"Forbundet":"Ikke forbundet"):"Deaktiveret")+" · "+(j.controllers||0)+" controllere · "+(j.entities||0)+" entities"+(j.error?" · "+j.error:"");}catch(e){document.getElementById("mqttStatus").textContent="Status utilgængelig";}}mqttStatus();setInterval(mqttStatus,5000);</script></section>\n  <div id="banner" class="banner"></div>')
 # v0.14 hardware profiles (settings resolved before opening UART/I2C).

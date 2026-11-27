@@ -69,7 +69,7 @@ def types(c,b,a):
 def gear(c,b,a,uid,check=True):
     with c.cache_lock:
         g=dict(c.gear.get(b,{}).get(a,{}))
-    if not g or g.get("ha_uid")!=uid:
+    if not g or not uid or g.get("ha_uid")!=uid:
         raise ValueError("Gear missing or identity changed; reload snapshot")
     if not g.get("online") or g.get("address_conflict"):
         raise ValueError("Gear is offline or conflicted")
@@ -100,6 +100,8 @@ def read_fades(c,b,a):
 def fade(c,b,a,name,value):
     opcode,read_op,lo,hi=FADES[name]
     integer(value,lo,hi,name)
+    if name=="extended_fade_time" and (value&15)>4:
+        raise ValueError("Reserved extended fade multiplier")
     if name=="extended_fade_time" and query(c,b,a,read_op) is None:
         raise ValueError("Extended fade time unsupported")
     dtr(c,b,0,value)
@@ -421,9 +423,9 @@ def execute(c,d):
     if not c.settings.local_dali_enabled: raise ValueError("Local DALI disabled")
     b=integer(d.get("bus"),1,3,"bus")
     action=d.get("action")
-    if action not in ("inspect","memory","name","fade","curve","color","reset","emergency_read","emergency_test","commission_input","input_config","input_read","feedback","restore_preview","restore_apply"):
+    if action not in ("inspect","memory","name","fade","curve","color","light","reset","emergency_read","emergency_test","commission_input","input_config","input_read","feedback","restore_preview","restore_apply"):
         raise ValueError("Unknown advanced operation")
-    if action in ("fade","curve","color","reset","emergency_test","commission_input","input_config","restore_apply") and d.get("confirm") is not True: raise ValueError("Explicit confirmation required")
+    if action in ("fade","curve","color","light","reset","emergency_test","commission_input","input_config","restore_apply") and d.get("confirm") is not True: raise ValueError("Explicit confirmation required")
     if action in ("commission_input","emergency_test") and d.get("test_bus") is not True: raise ValueError("Confirm isolated test bus")
     if action=="feedback": raise ValueError("Feedback not enabled")
     # Serialize multi-frame operations with every normal high-level command.
@@ -470,9 +472,19 @@ def execute(c,d):
             actual=ext(c,b,a,6,0xEE)
             if actual!=value: raise RuntimeError("Curve readback mismatch")
             r={"dimming_curve":actual}; cache(c,b,a,r)
-        elif action=="color":
+        elif action in ("color","light"):
             if 8 not in types(c,b,a): raise ValueError("DT8 required")
-            r=color_set(c,b,a,d)
+            if action=="color": r=color_set(c,b,a,d)
+            else:
+                state=d.get("state")
+                if state not in ("ON","OFF"): raise ValueError("Invalid light state")
+                level=d.get("level")
+                if level is not None: integer(level,0,254,"brightness")
+                if state=="OFF": r=c.set_level(b,a,0)
+                else:
+                    r=color_set(c,b,a,d) if "kelvin" in d or "rgbwaf" in d else {}
+                    if level is not None or not g.get("actual_level"):
+                        r.update(c.set_level(b,a,max(1,level if level is not None else 254)))
         elif action=="reset":
             if d.get("confirm") is not True: raise ValueError("Explicit factory reset confirmation required")
             # Refuse reset of emergency gear, including multi-type gear.
@@ -491,6 +503,9 @@ def execute(c,d):
                     raise ValueError("Select test and explicitly confirm safe conditions")
                 ext(c,b,a,1,{"function":0xE3,"duration":0xE4,"stop":0xE5}[test],"twice")
             r=emergency_read(c,b,a); cache(c,b,a,r)
+            if action=="emergency_test":
+                from maintenance import audit
+                audit({"controller_id":c.controller_id,"bus":b,"address":a,"uid":g.get("ha_uid"),"test":test,"status":"command_sent_not_test_passed","readback":r})
         else: r=restore_plan(c,b,a,g,d)
         return {"ok":True,**r}
 
@@ -506,7 +521,7 @@ PRESERVE=("name","device_types","fade_time","fade_rate","extended_fade_time","di
           "gear_operation_seconds","gear_start_counter","gear_temperature_raw","light_start_counter",
           "light_on_seconds","light_temperature_raw")
 
-PRESERVE += ("last_memory_bank","driver_firmware","driver_hardware","iec101","iec102","iec103","logical_control_devices","logical_control_gear","logical_index","gtin_raw","apparent_energy_kvah","apparent_power_va","gear_temperature_c","light_temperature_c")+tuple("sampled_bank_"+str(n) for n in range(202,208))
+PRESERVE += ("identity_read_at","capabilities_read_at","color_read_at","last_memory_bank","driver_firmware","driver_hardware","iec101","iec102","iec103","logical_control_devices","logical_control_gear","logical_index","gtin_raw","apparent_energy_kvah","apparent_power_va","gear_temperature_c","light_temperature_c")+tuple("sampled_bank_"+str(n) for n in range(202,208))
 
 def install(cls):
     old_read=cls._read_gear_details

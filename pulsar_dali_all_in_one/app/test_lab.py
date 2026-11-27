@@ -262,6 +262,7 @@ function paramsFromForm(){
    else if(e.type==="number"||["source_bus","source_address","channels"].includes(id)||(a==="curve"&&id==="value"))out[id]=Number(e.value);
    else out[id]=e.value.trim();
  }
+ if(a==="fade"&&out.parameter==="extended_fade_time"&&(out.value&15)>4)throw Error("Reserveret extended fade kode");
  if(a==="input_config"){const row=inputFields.find(x=>x[0]===out.parameter);if(!/^(?:\d+|0x[0-9a-f]+)$/i.test(out.value))throw Error("Indtast et heltal");out.value=Number(out.value);if(!row||!Number.isInteger(out.value)||out.value<row[2]||out.value>row[3])throw Error("Parameter uden for område");}
  if(a==="color"){if(out.color_kind==="rgbwaf"){out.rgbwaf=Array.from({length:out.channels},(_,i)=>out["rgb_"+i]);for(const k of Object.keys(out))if(k.startsWith("rgb_"))delete out[k];delete out.channels;}delete out.color_kind;}
  return out;

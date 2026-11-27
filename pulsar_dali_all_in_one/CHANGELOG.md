@@ -1,3 +1,10 @@
+# 0.17.0
+- Includes shared navigation and typed configuration forms from 0.16.1.
+- Low-priority automatic identity and capability reads; optional D4i polling.
+- Optional DT8 Tc/RGB/RGBW MQTT discovery and commands, stable light IDs.
+- DT1 command audit history and validation improvements.
+- Physical testing still required for advanced functions.
+
 # 0.16.1
 - Common responsive layout across all seven pages, stable navigation and active page indicator.
 - Dedicated configuration page, typed fields, backup selection and readable results.

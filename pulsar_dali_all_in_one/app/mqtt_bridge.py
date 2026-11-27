@@ -18,7 +18,7 @@ def broker(o):
     req=urllib.request.Request("http://supervisor/services/mqtt",headers={"Authorization":"Bearer "+os.environ["SUPERVISOR_TOKEN"]})
     with urllib.request.urlopen(req,timeout=5) as r: return json.load(r)["data"]
 
-def catalog(s,name,prefix,bridge_av):
+def catalog(s,name,prefix,bridge_av,dt8=False):
     cid=str(s["controller_id"]); root="pulsar_dali_aio/"+key(cid); out={}
     gear=s.get("gear",[]); buses=s.get("buses",{}); busy=s.get("scan_running",False)
     index={(g["bus"],g["address"]):g for g in gear}
@@ -50,7 +50,21 @@ def catalog(s,name,prefix,bridge_av):
         route=dict(kind="gear",bus=b,address=a,uid=uid)
         if g.get("entity_kind")=="switch":
             add("switch",suf+"_switch",d,"Relay",ok and level is not None,"ON" if level else "OFF",route,retain=False)
-        else: light(suf+"_light",d,"Light",ok,level,route)
+        else:
+            kelvin=g.get("color_temp_kelvin"); rgb=g.get("rgbwaf")
+            lo=g.get("min_kelvin"); hi=g.get("max_kelvin")
+            ct=type(kelvin) is int and type(lo) is int and type(hi) is int and 0<lo<=kelvin<=hi and lo<hi
+            rgbok=isinstance(rgb,list) and len(rgb) in (3,4) and all(type(x) is int and 0<=x<=254 for x in rgb)
+            if dt8 and 8 in g.get("device_types",[]) and (ct or rgbok) and type(level) is int and 0<=level<=254:
+                mode="color_temp" if ct else "rgb" if len(rgb)==3 else "rgbw"
+                state=dict(state="ON" if level else "OFF",brightness=level,color_mode=mode)
+                extra={"supported_color_modes":[mode]}
+                if ct:
+                    state["color_temp"]=round(1e6/kelvin)
+                    extra.update(min_mireds=round(1e6/hi),max_mireds=round(1e6/lo))
+                else: state["color"]=dict(zip(("r","g","b","w"),[round(v*255/254) for v in rgb]))
+                add("light",suf+"_light",d,"Light",ok,state,dict(route,kind="advanced_light",controller_id=cid,colour_mode=mode),schema="json",brightness=True,brightness_scale=254,optimistic=False,retain=False,**extra)
+            else: light(suf+"_light",d,"Light",ok,level,route)
         for param,label in PARAMS.items():
             value=g.get(param)
             if value is not None:
@@ -132,6 +146,22 @@ def request(route,comp,payload):
         if not v.is_integer() or not route.get("minimum",0)<=v<=route["maximum"]: raise ValueError("Invalid parameter")
         d.update(parameter=route["parameter"],value=int(v))
         return "/api/gear/config",d,30
+    if k=="advanced_light":
+        c=json.loads(payload)
+        if c.get("state") not in ("ON","OFF"): raise ValueError("Invalid state")
+        level=c.get("brightness")
+        if level is not None and (type(level) is not int or not 0<=level<=254): raise ValueError("Invalid brightness")
+        d.update(mode="advanced",action="light",uid=route["uid"],address=route["address"],controller_id=route["controller_id"],confirm=True,state=c["state"],level=level)
+        if c["state"]=="ON" and "color_temp" in c and route["colour_mode"]=="color_temp":
+            m=c["color_temp"]
+            if type(m) is not int or not 1<=m<=65534: raise ValueError("Invalid color temperature")
+            d["kelvin"]=round(1e6/m)
+        if c["state"]=="ON" and "color" in c and route["colour_mode"] in ("rgb","rgbw"):
+            keys=("r","g","b") if route["colour_mode"]=="rgb" else ("r","g","b","w")
+            v=[c["color"].get(k) for k in keys]
+            if any(type(x) is not int or not 0<=x<=255 for x in v): raise ValueError("Invalid color")
+            d["rgbwaf"]=[round(x*254/255) for x in v]
+        return "/api/lab/run",d,60
     if k=="advanced_read" and payload=="PRESS":
         d.update(mode="advanced",action=route["action"],uid=route["uid"],address=route["address"],controller_id=route["controller_id"],bank=route.get("bank"))
         return "/api/lab/run",d,60
@@ -238,7 +268,7 @@ class Bridge:
                         del self.known[rid]; self.cursors.pop(rid,None)
                 for rid,target in targets.items():
                     try:
-                        s=self.snapshot(target); entries=catalog(s,target[0],self.prefix,self.av)
+                        s=self.snapshot(target); entries=catalog(s,target[0],self.prefix,self.av,self.o.get("dt8_mqtt_enabled",False))
                         known=self.known.setdefault(rid,{})
                         for t,e in entries.items():
                             if self.discovery and self.publish(t,e["config"],force=force): known[t]=e["av"]
@@ -280,7 +310,7 @@ class Bridge:
             rid,t=r
             try:
                 target=self.targets()[rid]; s=self.snapshot(target)
-                e=catalog(s,target[0],self.prefix,self.av).get(t)
+                e=catalog(s,target[0],self.prefix,self.av,self.o.get("dt8_mqtt_enabled",False)).get(t)
                 if not e or not e["ok"] or not self.connected.is_set() or time.monotonic()-stamp>10: continue
                 path,data,timeout=request(e["route"],e["comp"],payload)
                 if target[1] is None:

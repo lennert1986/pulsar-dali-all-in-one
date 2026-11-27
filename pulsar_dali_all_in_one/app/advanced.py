@@ -380,14 +380,14 @@ def input_action(c,b,a,d):
         if param=="enabled": integer(value,0,1,"enabled")
         if param=="event_filter" and any(c._dali2_query_instance(b,a,inst,op) is None for op in (0x90,0x91,0x92)): raise ValueError("Event filter not fully readable")
         return c.set_input_config(b,a,inst,param,value)
-    if d["action"]=="feedback":
-        addr=c._control_device_address(a); feature=0x20|inst
-        capability=c._s2or(b,0x2F,feature,addr)
-        if not capability: raise ValueError("No feedback capability reported")
-        enabled=integer(d.get("value"),0,1,"value")
-        if enabled: c._s2on(b,0x10,feature,addr)
-        else: c._s2tn(b,0x11,feature,addr)
-        return {"feedback_capability":capability,"feedback_active":c._s2or(b,0x2E,feature,addr)}
+    if d["action"] in ("feedback_read","feedback"):
+        import feedback
+        if info.get("address_conflict") or device.get("address_conflict"):
+            raise ValueError("Input address conflict")
+        if d["action"]=="feedback_read":
+            return feedback.inspect(c,b,a,inst)
+        # Explicit isolated test only; no background writes before physical validation.
+        return feedback.command(c,b,a,inst,integer(d.get("value"),0,1,"value"))
     return {"input_value":c._read_input_value(b,a,inst,info.get("resolution")),"instance_type":info.get("instance_type")}
 
 def restore_plan(c,b,a,g,d):
@@ -453,11 +453,10 @@ def execute(c,d):
     if not c.settings.local_dali_enabled: raise ValueError("Local DALI disabled")
     b=integer(d.get("bus"),1,3,"bus")
     action=d.get("action")
-    if action not in ("inspect","memory","name","basic_config","fade","curve","color","light","reset","emergency_read","emergency_test","commission_input","input_config","input_read","feedback","restore_preview","restore_apply"):
+    if action not in ("inspect","memory","name","basic_config","fade","curve","color","light","reset","emergency_read","emergency_test","commission_input","input_config","input_read","feedback_read","feedback","restore_preview","restore_apply"):
         raise ValueError("Unknown advanced operation")
-    if action in ("basic_config","fade","curve","color","light","reset","emergency_test","commission_input","input_config","restore_apply") and d.get("confirm") is not True: raise ValueError("Explicit confirmation required")
-    if action in ("commission_input","emergency_test") and d.get("test_bus") is not True: raise ValueError("Confirm isolated test bus")
-    if action=="feedback": raise ValueError("Feedback not enabled")
+    if action in ("basic_config","fade","curve","color","light","reset","emergency_test","commission_input","input_config","feedback","restore_apply") and d.get("confirm") is not True: raise ValueError("Explicit confirmation required")
+    if action in ("commission_input","emergency_test","feedback") and d.get("test_bus") is not True: raise ValueError("Confirm isolated test bus")
     # Serialize multi-frame operations with every normal high-level command.
     with c.operation_lock:
         if c.scan_running: raise ValueError("Scan in progress")
@@ -466,7 +465,7 @@ def execute(c,d):
             c.create_backup([b],"before-input-commission")
             return {"ok":True,**commission_one(c,b)}
         a=integer(d.get("address"),0,63,"address")
-        if action in ("input_config","input_read","feedback"):
+        if action in ("input_config","input_read","feedback_read","feedback"):
             return {"ok":True,**input_action(c,b,a,d)}
         g=gear(c,b,a,d.get("uid"))
         if action=="inspect": r=inspect(c,b,a)

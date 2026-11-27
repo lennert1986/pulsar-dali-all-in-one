@@ -4,6 +4,9 @@ from html import escape
 PAGES=(
     ("overview","./","Oversigt","Busser, armaturer, grupper og scener"),
     ("configuration","configuration","Konfiguration","Indstil armaturer, sensorer og avancerede funktioner"),
+    ("energy","energy","Energi","D4i-målinger og dækningsgrad"),
+    ("emergency","emergency","Nødbelysning","Registreret nødlysstatus og kommandohistorik"),
+    ("maintenance","maintenance","Vedligeholdelse","Backup, ressourcer og kommunikation"),
     ("commissioning","commissioning","Commissioning","Adresser, konflikter og konfigurationsbackups"),
     ("controllers","controllers","Controllers","Administrér lokale og eksterne controllere"),
     ("remote","remote","Remote","Sikker HTTPS-adgang fra andre controllere"),
@@ -16,7 +19,7 @@ CSS=r"""
 *{box-sizing:border-box}html{scrollbar-gutter:stable;min-width:0}body{margin:0;background:var(--bg);color:var(--text);font-size:15px;line-height:1.45}
 body .wrap,body main{width:100%;max-width:1440px;margin:0 auto;padding:20px 24px 36px;min-width:0}
 .pulsar-shell{margin-bottom:20px}.pulsar-brand{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;min-height:44px}.pulsar-brand-left{display:flex;align-items:center;gap:12px;min-width:0}.pulsar-logo{width:40px;height:40px;flex:none;border-radius:10px;background:var(--accent);color:white;display:grid;place-items:center;font-size:21px;font-weight:800}.pulsar-name{font-size:17px;font-weight:700;line-height:1.3}.pulsar-edition{font-size:12px;color:var(--muted)}.pulsar-version{font-size:12px;color:var(--muted);white-space:nowrap;padding:5px 9px;border:1px solid var(--border);border-radius:8px;font-variant-numeric:tabular-nums}
-nav.pulsar-nav{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;padding:5px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin:0;align-items:stretch}
+nav.pulsar-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:5px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin:0;align-items:stretch}
 nav.pulsar-nav a{min-width:0;min-height:42px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.2;padding:8px 4px;font-size:13px;font-weight:600;white-space:normal;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--muted);text-decoration:none}
 nav.pulsar-nav a:hover{border-color:var(--border);color:var(--text)}nav.pulsar-nav a[aria-current=page]{background:var(--accent);color:#fff;border-color:var(--accent)}nav.pulsar-nav a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pulsar-heading{display:block;margin:0 0 20px;min-width:0}.pulsar-heading h1{margin:0;font-size:clamp(23px,3vw,30px);line-height:1.25;font-weight:700}.pulsar-heading p{margin:5px 0 0;font-size:14px;color:var(--muted)}
@@ -32,7 +35,7 @@ body .banner{position:fixed;z-index:1100;bottom:18px;right:24px;max-width:min(48
 @media(max-width:1050px){nav.pulsar-nav{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:600px){body .wrap,body main{padding:14px 12px 24px}.pulsar-brand{min-height:40px}.pulsar-name{font-size:15px}.pulsar-logo{width:34px;height:34px}.pulsar-heading{margin-bottom:14px}nav.pulsar-nav{grid-template-columns:repeat(3,minmax(0,1fr))}nav.pulsar-nav a{min-height:38px;font-size:12px}.card,main>section{padding:13px;margin-bottom:12px}.fields,.form,.form-grid{grid-template-columns:minmax(0,1fr)}.actions{align-items:stretch}.actions button{flex:1 1 auto}body .banner{bottom:12px;right:12px;max-width:calc(100% - 24px)}}
 """
-def apply(page,key,version="0.17.2"):
+def apply(page,key,version="0.18.0"):
     info=next(x for x in PAGES if x[0]==key)
     nav='<nav class="pulsar-nav" aria-label="Hovedmenu">'+''.join(
         '<a href="'+url+'"'+(' aria-current="page"' if k==key else '')+'>'+label+'</a>'
@@ -42,7 +45,7 @@ def apply(page,key,version="0.17.2"):
            '<div class="pulsar-edition">All-in-One · Vertex G3 / G4</div></div></div>'
            '<span class="pulsar-version">v'+escape(version)+'</span></div>'+nav+'</div>'
            '<header class="pulsar-heading"><h1>'+info[2]+'</h1><p>'+info[3]+'</p></header>')
-    if key in ("testlab","configuration"):
+    if key in ("testlab","configuration","energy","emergency","maintenance"):
         page,n=re.subn(r'<h1>.*?</h1><p[^>]*>.*?</p>\s*<nav[^>]*>.*?</nav>',shell,page,count=1,flags=re.S)
     else:
         page,n=re.subn(r'<div class="header">.*?</nav>\s*</div>',shell,page,count=1,flags=re.S)

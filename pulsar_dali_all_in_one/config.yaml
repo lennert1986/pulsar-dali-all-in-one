@@ -1,5 +1,5 @@
 name: "Pulsar DALI All-in-One"
-version: "0.17.2"
+version: "0.18.0"
 slug: "pulsar_dali_all_in_one"
 description: >-
   Native Glamox/ES-SYSTEM Pulsar DALI gateway with control gear, groups, scenes,
@@ -52,6 +52,7 @@ options:
   led_pulse_ms: 80
   i2c_bus: 1
   mcp_address: 32
+  auto_backup_enabled: false
   auto_identify: true
   d4i_poll_enabled: false
   d4i_poll_interval: 900
@@ -82,6 +83,7 @@ schema:
   led_pulse_ms: "int(20,1000)"
   i2c_bus: "int(0,10)"
   mcp_address: "int(3,119)"
+  auto_backup_enabled: bool
   auto_identify: bool
   d4i_poll_enabled: bool
   d4i_poll_interval: "int(300,3600)"

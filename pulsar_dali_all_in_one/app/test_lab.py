@@ -215,6 +215,11 @@ function describeDevice(g){
  for(const [label,v] of fields){if(v===undefined||v===null)continue;const box=document.createElement("div"),k=document.createElement("small"),val=document.createElement("strong");k.textContent=label;val.textContent=typeof v==="boolean"?(v?"Ja":"Nej"):String(v);box.append(k,val);grid.append(box);}
  root.append(grid);
 }
+function fadeLabel(k,n){
+ if(k==="fade_time")return n===0?"0 · Ingen programmeret fade":n+" · "+(0.5*Math.pow(2,n/2)).toLocaleString("da-DK",{maximumFractionDigits:2})+" s";
+ if(k==="fade_rate")return n+" · "+(506/Math.pow(2,n/2)).toLocaleString("da-DK",{maximumFractionDigits:1})+" trin/s";
+ return String(n);
+}
 const directRows=[
  ["basic_config","min_level","Minimum Level",0,254],["basic_config","max_level","Maximum Level",0,254],["basic_config","power_on_level","Power-on Level",0,255],["basic_config","system_failure_level","System Failure Level",0,255],
  ["fade","fade_time","Fade Time",0,15],["fade","fade_rate","Fade Rate",1,15],["fade","extended_fade_time","Extended Fade Time",0,79]
@@ -229,7 +234,12 @@ function directSettings(g){
   for(const [a,k,title,min,max] of directRows.filter(x=>x[0]===kind)){
    if(k==="extended_fade_time"&&!Number.isInteger(g[k]))continue;
    const row=document.createElement("div");row.className="setting-row";const label=document.createElement("label");label.htmlFor="direct_"+k;label.textContent=title;
-   const input=document.createElement("input");input.type="number";input.id=label.htmlFor;input.min=min;input.max=max;input.step=1;input.required=true;input.value=Number.isInteger(g[k])?String(g[k]):"";input.placeholder="Ikke aflæst";
+   const choice=k==="fade_time"||k==="fade_rate";
+   const input=document.createElement(choice?"select":"input");input.id=label.htmlFor;input.required=true;
+   if(choice){option(input,"","Ikke aflæst");for(let n=min;n<=max;n++)option(input,String(n),fadeLabel(k,n));}
+   else{input.type="number";input.min=min;input.max=max;input.step=1;input.placeholder="Ikke aflæst";}
+   input.value=Number.isInteger(g[k])?String(g[k]):"";
+   if(a==="basic_config"){const detail=document.createElement("small");detail.className="muted";const show=()=>{const v=Number(input.value);detail.textContent=input.value===""?"Ikke aflæst":v===255?"MASK / specialværdi":(v/254*100).toLocaleString("da-DK",{maximumFractionDigits:1})+" % af DALI-kodeområdet";};input.addEventListener("input",show);show();label.append(detail);}
    const button=document.createElement("button");button.type="button";button.textContent="Gem";button.onclick=()=>{if(!input.reportValidity())return;const value=Number(input.value);if(k==="extended_fade_time"&&(value&15)>4){status("Reserveret extended fade kode.","error");return;}saveDirect(a,{parameter:k,value});};
    row.append(label,input,button);panel.append(row);
   }
@@ -239,7 +249,7 @@ function directSettings(g){
   }
   grid.append(panel);
  }
- const note=document.createElement("p");note.className="muted";note.textContent="Hver indstilling gemmes separat. Værdierne er senest aflæste DALI-koder. Skrivning kræver bekræftelse og tilbageaflæsning.";root.append(note);
+ const note=document.createElement("p");note.className="muted";note.textContent="Hver indstilling gemmes separat. Fade vises med tid eller trin/s; niveauprocent er kodeprocent, ikke målt lysudbytte. Skrivning kræver bekræftelse og tilbageaflæsning.";root.append(note);
  for(const el of root.querySelectorAll("input,select,button"))el.disabled=busy||g.online===false||!!g.address_conflict;
 }
 async function saveDirect(a,params){
@@ -327,7 +337,7 @@ function advancedFields(){
    const update=()=>{const n=p.value;v.min=n==="fade_rate"?1:0;v.max=n==="extended_fade_time"?79:15;v.value=g[n]??"";$("hint").textContent=n==="extended_fade_time"?"Rå DALI-kode: multiplikator og basis. 0 deaktiverer.":"Kodet DALI-værdi (ikke sekunder). Efter skrivning læses parameteren tilbage.";};
    p.onchange=update;update();
  }else if(a==="curve"){select("value","Dimmekurve",g.dimming_curve??"",[["","Vælg dimmekurve"],[0,"Logaritmisk"],[1,"Lineær"]]);}
- else if(a==="memory"){numeric("bank","Memory bank",0,0,255);$("hint").textContent="Bank 0 indeholder identifikation. D4i-data aflæses kun på understøttede drivere.";}
+ else if(a==="memory"){numeric("bank","Memory bank",0,0,255);$("hint").textContent="Bank 0: identifikation · 1: producentdata · 202–204: energi · 205–206: diagnostik · 207: rådata. D4i kræver understøttelse.";}
  else if(a==="name"){text("name","Armaturets navn",g.name||"");$("hint").textContent="Navnet gemmes i controlleren; eksisterende MQTT-identitet bevares.";}
  else if(a==="color"){
    const choices=[];if((g.colour_features&2)&&g.min_kelvin&&g.max_kelvin)choices.push(["kelvin","Tunable White (Kelvin)"]);if(g.rgbwaf_channels>=3&&g.rgbwaf_channels<=6)choices.push(["rgbwaf","RGB / RGBWAF"]);if(!choices.length){$("hint").textContent="Læs egenskaber først. Ingen understøttet farvetype er bekræftet endnu.";return;}const cap=select("color_kind","Farvetype",choices[0][0],choices);

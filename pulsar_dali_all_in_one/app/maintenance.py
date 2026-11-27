@@ -44,7 +44,7 @@ def candidates(snapshot,o,now,attempts):
 class Worker:
     def __init__(self,c,log,o=None):
         self.c=c; self.log=log; self.o=options() if o is None else o
-        self.stop_event=threading.Event(); self.attempts={}; self.thread=None
+        self.stop_event=threading.Event(); self.attempts={}; self.thread=None; self.next_backup=0
     def start(self):
         if not self.c.settings.local_dali_enabled: return
         self.thread=threading.Thread(target=self.run,daemon=True,name="DALI-maintenance")
@@ -81,9 +81,23 @@ class Worker:
             self.log("Advanced read deferred: "+str(e))
             return False
         finally: c.operation_lock.release()
+    def auto_backup(self):
+        if not self.o.get("auto_backup_enabled",False) or time.time()<self.next_backup: return
+        c=self.c
+        if not c.operation_lock.acquire(blocking=False): return
+        try:
+            if c.scan_running: return
+            c.create_backup([1,2,3],"automatic-snapshot")
+            self.next_backup=time.time()+86400
+        except Exception as e:
+            self.next_backup=time.time()+3600
+            self.log("Automatic backup deferred: "+str(e))
+        finally: c.operation_lock.release()
     def run(self):
         # At most one job per 30 s, no immediate retry; users and ordinary
         # polling can acquire the operation lock between jobs.
         while not self.stop_event.wait(30):
-            try: self.step()
+            try:
+                self.auto_backup()
+                self.step()
             except Exception as e: self.log("Maintenance cycle failed: "+str(e))

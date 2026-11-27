@@ -49,3 +49,7 @@ Select controller, bus and gear/input instance before choosing settings. Device 
 ## 0.17.2
 
 Configuration shows name, basic levels, fade and supported dimming curve directly, with per-field Save. Writes use the existing identity-checked advanced API and confirmation; no new DALI commands. Action details are hidden until a command has run. Test Lab retains its diagnostic labels.
+
+## 0.18.0 administration
+
+New Energy, Emergency and Maintenance pages share the navigation. Energy sums only fresh valid D4i samples, with per-bus coverage; missing data is not zero. Emergency command history and resource/transaction counters are local only; remote gear snapshots remain available. No safety certification or measured bus-utilization claim. Optional daily cached configuration backup (auto_backup_enabled, default false); existing backup storage policy applies. Restore checks group and scene readback and reports partial changes. Fade time/rate choices show nominal values; level percentage is raw code percentage, not light output. XY, feedback LEDs and HA identity transfer remain unimplemented; advanced hardware features remain experimental.

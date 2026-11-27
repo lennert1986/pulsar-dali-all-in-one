@@ -410,9 +410,17 @@ def restore_plan(c,b,a,g,d):
             if k in plan:
                 fade(c,b,a,k,plan[k]); applied.append(k)
         if isinstance(groups,list):
-            c.set_groups(b,a,groups); applied.append("groups")
+            c.set_groups(b,a,groups)
+            low=query(c,b,a,0xC0);high=query(c,b,a,0xC1)
+            if low is None or high is None: raise RuntimeError("Group readback missing")
+            actual=[i for i in range(16) if ((low|(high<<8))>>i)&1]
+            if sorted(set(groups))!=actual: raise RuntimeError("Group readback mismatch")
+            applied.append("groups")
         for n,v in scenes.items():
-            c.set_scene_level(b,a,int(n),None if v==255 else v); applied.append("scene "+n)
+            c.set_scene_level(b,a,int(n),None if v==255 else v)
+            actual=query(c,b,a,0xB0+int(n))
+            if actual!=v: raise RuntimeError("Scene readback mismatch "+n)
+            applied.append("scene "+n)
     except Exception as exc:
         return {"ok":False,"applied":applied,"error":str(exc)}
     return {"applied":applied,"replacement":replacement,"note":"Target short address and HA UID retained"}

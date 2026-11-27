@@ -1,3 +1,10 @@
+# 0.18.0
+- Dedicated energy, emergency and maintenance dashboards with shared navigation.
+- D4i coverage and stale-data handling, local resource and UART transaction statistics.
+- Optional daily cache backup and group/scene restore readback.
+- Human-readable fade values and level code percentages.
+- Advanced hardware verification pending.
+
 # 0.17.2
 - Direct editable settings with per-field save and readback.
 - Compact advanced option groups and hidden empty result section.

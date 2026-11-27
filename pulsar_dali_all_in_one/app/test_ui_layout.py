@@ -30,7 +30,9 @@ for n in ast.parse(src).body:
             if isinstance(target,ast.Name) and target.id in names:
                 k=names[target.id];pages[k]=ui_layout.apply(n.value.value,k)
 pages["testlab"]=test_lab.page_for(False);pages["configuration"]=test_lab.page_for(True)
-assert len(pages)==7
+import dashboards
+for key in ("energy","emergency","maintenance"): pages[key]=dashboards.page_for(key)
+assert len(pages)==10
 with tempfile.TemporaryDirectory() as d:
     for key,page in pages.items():
         check=Check();check.feed(page)
@@ -71,3 +73,14 @@ assert 'id="directSettings"' in pages["configuration"]
 assert '<section id="resultSection" hidden>' in pages["configuration"]
 assert 'Ingen test kørt.</p>' not in pages["configuration"]
 assert 'function saveDirect(' in pages["configuration"]
+
+script=re.search(r"<script[^>]*>(.*?)</script>",pages["energy"],re.S).group(1)
+start=script.index("const fresh=");end=script.index("function el(",start)
+subprocess.run(["node","-e",script[start:end]+r"""
+const assert=require("node:assert/strict");
+const g={online:true,last_memory_bank:202,sampled_bank_202:1000,power_w:20,energy_kwh:3};
+assert.equal(energyStats([g],1100).power,20);
+assert.equal(energyStats([g],2000).power,null);
+assert.equal(energyStats([{...g,address_conflict:true}],1100).power,null);
+assert.equal(energyStats([{...g,power_w:undefined}],1100).power,null);
+"""],check=True)

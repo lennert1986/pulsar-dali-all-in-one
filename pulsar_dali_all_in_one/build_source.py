@@ -8,7 +8,7 @@ def change(old,new):
     global s
     if old not in s: raise RuntimeError("Missing patch anchor: "+repr(old))
     s=s.replace(old,new,1)
-s=s.replace("0.12.0","0.20.3").replace("Pulsar DALI Control 0.20.3","Pulsar DALI All-in-One 0.20.3")
+s=s.replace("0.12.0","0.21.0").replace("Pulsar DALI Control 0.21.0","Pulsar DALI All-in-One 0.21.0")
 change('    remote_api_enabled: bool = False','    remote_api_enabled: bool = False\n    local_dali_enabled: bool = True')
 change('        led_enabled=bool(data.get("led_enabled", True)),','        led_enabled=bool(data.get("led_enabled", True)) and bool(data.get("local_dali_enabled", True)),')
 change('        remote_api_enabled=bool(data.get("remote_api_enabled", False)),','        remote_api_enabled=bool(data.get("remote_api_enabled", False)),\n        local_dali_enabled=bool(data.get("local_dali_enabled", True)),')
@@ -65,6 +65,12 @@ change('        if path.endswith("/api/mqtt/status"):','        if path.endswith
 change('            data = self._read_json()\n','            data = self._read_json()\n            if path.endswith("/api/lab/run"):\n                self._json(test_lab.run(ctl, data))\n                return\n            if path.endswith("/api/lab/remote"):\n                if getattr(self.server, "is_remote", False):\n                    self._json({"ok": False, "error": "not found"}, 404)\n                    return\n                rid = data.get("registry_id")\n                with CONTROLLERS_LOCK:\n                    item = dict(load_controller_registry().get(rid, {}))\n                expected = data.get("controller_id")\n                if not expected or item.get("remote_controller_id") != expected:\n                    raise ValueError("Unknown or changed remote identity")\n                operation = data.get("operation")\n                if operation == "clock":\n                    result = remote_controller_request(item, "GET", "/api/admin/clock", timeout=10)\n                elif operation == "snapshot":\n                    result = remote_controller_request(item, "GET", "/api/devices", timeout=10)\n                elif operation == "run":\n                    test = data.get("test")\n                    if not isinstance(test, dict) or test.get("controller_id") != expected:\n                        raise ValueError("Remote test identity mismatch")\n                    result = remote_controller_request(item, "POST", "/api/lab/run", test, timeout=60)\n                else:\n                    raise ValueError("Unknown lab operation")\n                if result.get("controller_id") != expected:\n                    raise ValueError("Remote controller identity mismatch")\n                self._json(result)\n                return\n')
 # Common shell for all existing pages. Runtime applies only to HTML.
 change('import test_lab\n\ntest_lab.install', 'import ui_layout\nPAGE=ui_layout.apply(PAGE,"overview")\nCOMMISSIONING_PAGE=ui_layout.apply(COMMISSIONING_PAGE,"commissioning")\nCONTROLLERS_PAGE=ui_layout.apply(CONTROLLERS_PAGE,"controllers")\nREMOTE_PAGE=ui_layout.apply(REMOTE_PAGE,"remote")\nDIAGNOSTICS_PAGE=ui_layout.apply(DIAGNOSTICS_PAGE,"diagnostics")\nimport test_lab\n\ntest_lab.install')
+
+
+# Pairing is separate from the remote data-plane allowlists.
+change('import test_lab\n\ntest_lab.install', 'import pairing\nimport test_lab\n\ntest_lab.install')
+change('if not self.server.remote_token or not hmac.compare_digest(supplied, expected):','if not ((self.server.remote_token and hmac.compare_digest(supplied, expected)) or pairing.service(self).authorized(supplied)):')
+change('if __name__ == "__main__":\n    raise SystemExit(main())','pairing.install(Handler, globals())\n\nif __name__ == "__main__":\n    raise SystemExit(main())')
 
 compile(s,"pulsar_dali_control.py","exec")
 out=pathlib.Path(sys.argv[1])

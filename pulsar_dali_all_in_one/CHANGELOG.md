@@ -1,3 +1,7 @@
+# 0.19.0
+- Named push-button event filter bits (Part 301).
+- Existing advanced functionality retained. XY, feedback and HA identity migration pending verification.
+
 # 0.18.1
 - DT8 graphical RGB and Kelvin controls; explicit save retained.
 - DALI-2 raw event mask bit editor and named memory banks.

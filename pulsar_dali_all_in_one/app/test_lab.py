@@ -379,7 +379,7 @@ function advancedFields(){
      const valid=/^(?:\d+|0x[0-9a-f]+)$/i.test(v.value)&&Number(v.value)>=0&&Number(v.value)<=16777215;
      if(!valid){bits.append(document.createTextNode("Aflæs eller indtast en gyldig eventmaske først."));return;}
      const mask=Number(v.value);
-     for(let i=0;i<24;i++){const label=document.createElement("label"),box=document.createElement("input");box.type="checkbox";box.checked=Boolean(mask&(1<<i));box.onchange=()=>{const old=Number(v.value);v.value=String(box.checked?old|(1<<i):old&~(1<<i));};label.append(box,document.createTextNode("Bit "+i));bits.append(label);}
+     for(let i=0;i<24;i++){const label=document.createElement("label"),box=document.createElement("input");box.type="checkbox";box.checked=Boolean(mask&(1<<i));box.onchange=()=>{const old=Number(v.value);v.value=String(box.checked?old|(1<<i):old&~(1<<i));};label.append(box,document.createTextNode((g.instance_type===1?["Button released","Button pressed","Short press","Double press","Long press start","Long press repeat","Long press stop","Button free","Button stuck"][i]:undefined)||"Bit "+i));bits.append(label);}
    };
    const update=()=>{const row=rows.find(x=>x[0]===p.value);v.value=g[p.value]??"";$("hint").textContent="Tilladt råværdi "+row[2]+"–"+row[3]+". Eventfilter kan indtastes i hex. Bitbetydning afhænger af instancetype.";rebuild();};p.onchange=update;v.oninput=rebuild;update();
  }else if(a.startsWith("restore")){

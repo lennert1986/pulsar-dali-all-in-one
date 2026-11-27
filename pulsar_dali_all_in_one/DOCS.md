@@ -57,3 +57,7 @@ New Energy, Emergency and Maintenance pages share the navigation. Energy sums on
 ## 0.18.1
 
 DT8 configuration includes RGB colour picker and Kelvin slider, without sending commands while editing. Unknown channel values remain blank. Event mask editor exposes individual raw bits, without guessing their instance-specific meanings. Named memory banks and manual bank selection. Daily backup timestamp persists across restarts. Restore chooses safe min/max write order. No new DALI opcodes, XY/feedback and HA identity transfer remain unimplemented.
+
+## 0.19.0
+
+Part 301 push-button event filter labels for bits 0–8. Other instance bits remain raw. XY, feedback and identity migration are not enabled. Existing emergency command log retains its bounded rotation; general application logs remain managed by Home Assistant.

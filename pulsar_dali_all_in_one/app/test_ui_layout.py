@@ -47,3 +47,22 @@ with tempfile.TemporaryDirectory() as d:
 assert '<option value="advanced" selected>' in pages["configuration"]
 assert '<option value="advanced">' not in pages["testlab"]
 assert "paramsFromForm()" in pages["configuration"]
+
+# Test device-based action filtering directly in JavaScript without a browser.
+script=re.search(r"<script[^>]*>(.*?)</script>",pages["configuration"],re.S).group(1)
+start=script.index("function typesOf(")
+end=script.index("const groups=",start)
+logic=script[start:end]
+checks=r"""
+const assert=require("node:assert/strict");
+assert(availableActions({kind:"gear",device_type:6}).includes("curve"));
+assert(!availableActions({kind:"gear",device_type:6}).includes("color"));
+assert(availableActions({kind:"gear",device_type:8}).includes("color"));
+assert(!availableActions({kind:"gear",device_type:8}).includes("curve"));
+assert.deepEqual(availableActions({kind:"input",instance_type:3}),["input_read","input_config"]);
+assert(availableActions({kind:"gear",device_type:1}).includes("emergency_read"));
+assert(!availableActions({kind:"gear",device_type:1}).includes("reset"));
+assert(!availableActions({kind:"gear",device_type:255,device_types:[1,6]}).includes("restore_apply"));
+assert.deepEqual(availableActions(undefined),[]);
+"""
+subprocess.run(["node","-e",logic+checks],check=True)

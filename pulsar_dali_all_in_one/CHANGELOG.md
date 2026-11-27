@@ -1,3 +1,9 @@
+# 0.17.1
+- Device-first configuration with grouped gear and sensor selection, current device facts and capability-filtered actions.
+- Basic level settings with identity checks and readback.
+- Refresh selected device after actions, avoid invented fade values.
+- Separate bus commissioning and automated action-filter checks.
+
 # 0.17.0
 - Includes shared navigation and typed configuration forms from 0.16.1.
 - Low-priority automatic identity and capability reads; optional D4i polling.

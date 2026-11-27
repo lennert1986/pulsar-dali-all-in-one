@@ -423,9 +423,9 @@ def execute(c,d):
     if not c.settings.local_dali_enabled: raise ValueError("Local DALI disabled")
     b=integer(d.get("bus"),1,3,"bus")
     action=d.get("action")
-    if action not in ("inspect","memory","name","fade","curve","color","light","reset","emergency_read","emergency_test","commission_input","input_config","input_read","feedback","restore_preview","restore_apply"):
+    if action not in ("inspect","memory","name","basic_config","fade","curve","color","light","reset","emergency_read","emergency_test","commission_input","input_config","input_read","feedback","restore_preview","restore_apply"):
         raise ValueError("Unknown advanced operation")
-    if action in ("fade","curve","color","light","reset","emergency_test","commission_input","input_config","restore_apply") and d.get("confirm") is not True: raise ValueError("Explicit confirmation required")
+    if action in ("basic_config","fade","curve","color","light","reset","emergency_test","commission_input","input_config","restore_apply") and d.get("confirm") is not True: raise ValueError("Explicit confirmation required")
     if action in ("commission_input","emergency_test") and d.get("test_bus") is not True: raise ValueError("Confirm isolated test bus")
     if action=="feedback": raise ValueError("Feedback not enabled")
     # Serialize multi-frame operations with every normal high-level command.
@@ -462,6 +462,12 @@ def execute(c,d):
             if not isinstance(name,str) or not name.strip() or len(name)>80 or any(ord(x)<32 for x in name):
                 raise ValueError("Name must contain 1..80 printable characters")
             cache(c,b,a,{"name":name.strip()}); r={"name":name.strip()}
+        elif action=="basic_config":
+            parameter=d.get("parameter")
+            if parameter not in BASIC: raise ValueError("Unsupported basic parameter")
+            value=integer(d.get("value"),0,255 if parameter in ("power_on_level","system_failure_level") else 254,"value")
+            r=c.set_config(b,a,parameter,value)
+            if r.get("readback")!=value: raise RuntimeError("Basic parameter readback mismatch")
         elif action=="fade":
             if d.get("parameter") not in FADES: raise ValueError("Unsupported fade parameter")
             r=fade(c,b,a,d["parameter"],d.get("value"))

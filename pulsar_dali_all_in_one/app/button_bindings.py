@@ -80,6 +80,8 @@ def config(c,b,a,n,d):
     if short==long=="none" and mode=="none":raise ValueError("Select at least one action")
     # Event filter and source addressing must be configured before enabling.
     if mode!="none":feedback.steady(c,b,a,n)
+    if short!="none" and not (source(c,b,a,n).get("event_filter",0) or 0)&4:raise ValueError("Enable short press event filter bit 2")
+    if long!="none" and not (source(c,b,a,n).get("event_filter",0) or 0)&16:raise ValueError("Enable long press start event filter bit 4")
     members=targets(c,b,kind,target)
     item=dict(target_kind=kind,target=target,short_action=short,long_action=long,feedback_mode=mode,
               members=[list(x) for x in members],created=time.time())
@@ -145,11 +147,12 @@ class Worker:
         desired=bool(on if item["feedback_mode"]=="follow" else not on)
         now=time.monotonic()
         prior=self.last.get(k)
+        signature=(desired,item["created"])
         # Reassert periodically (e.g. power cycle), not on every poll.
-        if prior and prior[0]==desired and now-prior[1]<60:return
+        if prior and prior[0]==signature and now-prior[1]<60:return
         feedback.steady(c,b,a,n)
         r=feedback.command(c,b,a,n,int(desired))
-        if r["target_responded"] and (not desired or r["readback_verified"]):self.last[k]=(desired,now)
+        if r["target_responded"] and (not desired or r["readback_verified"]):self.last[k]=(signature,now)
     def step(self):
         c=self.c
         report=c.events_since(self.cursor,0);self.cursor=report["latest_id"]

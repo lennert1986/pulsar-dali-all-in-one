@@ -189,7 +189,7 @@ body{margin:0;background:var(--primary-background-color,Canvas);color:var(--prim
 <option value="restore_preview">Backup: vis restore-plan</option><option value="restore_apply">Backup: udfør restore / udskiftning</option>
 <option value="emergency_read">DT1 læs status</option><option value="emergency_test">DT1 manuel test</option><option value="reset">Reset armatur</option>
 </select></label></div><div id="argFields" class="pulsar-args"></div><div hidden><textarea id="args"></textarea></div>
-<p id="hint" class="muted"></p><label class="check"><input id="writeconfirm" type="checkbox">Bekræft handlingen. Anden DALI-commissioning er stoppet.</label><label class="check"><input id="testbus" type="checkbox">Isoleret testbus (påkrævet ved DALI-2 adressering, nødlys- og feedback-test).</label>
+<p id="hint" class="muted"></p><label class="check"><input id="writeconfirm" type="checkbox">Bekræft handlingen. Anden DALI-commissioning er stoppet.</label><label class="check"><input id="testbus" type="checkbox">Isoleret testbus (påkrævet ved DALI-2 adressering, nødlys- og feedback-test samt LED-parameterændring).</label>
 <p class="muted" id="warning" hidden>Restore kan gennemføre delvise ændringer. DT1-test erstatter ikke godkendt nødlysvedligehold.</p></div><div class="actions"><button id="refresh">Opdater enheder</button><button class="primary" id="run" disabled>Kør test</button><button id="export" disabled>Eksportér JSON</button></div><p id="status" class="pulsar-state" role="status">Indlæser…</p>
 </section><section id="resultSection"><h2>Resultat</h2><p id="summary" class="muted">Ingen test kørt.</p><div id="metrics" class="pulsar-metrics"></div><div class="scroll"><table><thead><tr><th>Kontrol</th><th>Status</th><th>Værdi / fejl</th></tr></thead><tbody id="results"></tbody></table></div></section>
 <section id="telegramSection"><h2>Telegramlog</h2><p class="muted">TX = kodet forespørgsel til STM32. RX = svarpayload efter validering af ramme/checksum. Ingen antagelse om faktisk busmåling.</p><div class="scroll"><table><thead><tr><th>TX</th><th>RX</th><th>ms</th></tr></thead><tbody id="trace"></tbody></table></div></section>
@@ -436,6 +436,7 @@ function advancedFields(){
 function paramsFromForm(){
  const a=action(),out={};
  for(const e of $("argFields").querySelectorAll("[data-arg]")){
+   if(a==="binding_set"&&$("arg_enabled").value==="no"&&e.dataset.arg!=="enabled")continue;
    if(!e.checkValidity()){e.reportValidity();throw Error("Kontrollér "+e.closest("label").textContent);}
    const id=e.dataset.arg;
    if(e.type==="checkbox")out[id]=e.checked;

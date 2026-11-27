@@ -1,6 +1,6 @@
 import threading
 import unittest
-from feedback import query,decode,active,inspect,command
+from feedback import query,decode,active,inspect,command,configure
 from advanced import execute
 class Fake:
     controller_id="test"
@@ -13,14 +13,21 @@ class Fake:
         self.frames=[]
         self.cap=7
         self.raw_active=255
+        self.params={0x4C:200,0x4A:0,0x4B:63,0x49:1,0x4D:255}
+        self.dtr=0
     def _control_device_address(self,a):return (a<<1)|1
     def _dali2_query_device(self,*a):return 0
     def _s2or(self,b,op,inst,addr):
         self.frames.append(("query",b,op,inst,addr))
-        return {0x4F:self.cap,0x4E:self.raw_active,0x4D:255,0x4C:200,0x4A:0,0x4B:63,0x49:1}.get(op)
+        return {0x4F:self.cap,0x4E:self.raw_active,**self.params}.get(op)
     def _s2on(self,b,op,inst,addr):
         self.frames.append(("once",b,op,inst,addr))
         self.raw_active=255 if op==0x10 else None
+    def _dali2_dtr0(self,b,v):
+        self.frames.append(("dtr",b,v));self.dtr=v
+    def _s2tn(self,b,op,inst,addr):
+        self.frames.append(("twice",b,op,inst,addr))
+        self.params[{0x13:0x4C,0x14:0x4B,0x15:0x4A,0x16:0x49,0x12:0x4D}[op]]=self.dtr
 class Tests(unittest.TestCase):
     def req(self,c,action,**kw):
         return execute(c,dict(controller_id="test",bus=1,address=2,instance=3,action=action,**kw))
@@ -64,4 +71,21 @@ class Tests(unittest.TestCase):
         self.assertIsNone(active(None))
         self.assertTrue(active(255))
         with self.assertRaises(ValueError):active(0)
+    def test_write_parameters(self):
+        for name,value,op in (("active_brightness",255,0x13),("inactive_brightness",10,0x15),("active_colour",12,0x14),("inactive_colour",48,0x16),("feedback_timing",199,0x12)):
+            c=Fake();r=self.req(c,"feedback_config",parameter=name,value=value,confirm=True,test_bus=True)
+            self.assertEqual(r["readback"],value)
+            self.assertIn(("dtr",1,value),c.frames)
+            self.assertIn(("twice",1,op,0x23,5),c.frames)
+            c.frames.clear()
+            self.assertFalse(configure(c,1,2,3,name,value)["changed"])
+            self.assertTrue(all(x[0]=="query" for x in c.frames))
+    def test_write_gates(self):
+        for cap,name,value in ((1,"active_brightness",50),(3,"active_colour",12),(7,"active_colour",0),(7,"inactive_brightness",256),(9,"active_brightness",0)):
+            c=Fake();c.cap=cap
+            with self.assertRaises(ValueError):configure(c,1,2,3,name,value)
+            self.assertTrue(all(x[0]=="query" for x in c.frames))
+        c=Fake()
+        with self.assertRaises(ValueError):self.req(c,"feedback_config",parameter="active_colour",value=3,confirm=True)
+        self.assertFalse(c.frames)
 if __name__=="__main__":unittest.main()

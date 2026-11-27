@@ -65,3 +65,7 @@ Part 301 push-button event filter labels for bits 0–8. Other instance bits rem
 ## 0.20.0
 
 Maintenance exports a combined JSON snapshot of registered controllers, with selected configuration fields and per-controller errors. This is a snapshot export, not a full restorable backup. Discovery, XY control and clock synchronization remain pending.
+
+## Controller discovery (0.20.1)
+
+Enable `controller_discovery_enabled` on each participating controller. Controllers with `remote_api_enabled` advertise every 15 seconds over IPv4 multicast 239.255.84.43 UDP 38443, TTL 1. Candidates expire after 100 seconds. Controllers page refreshes automatically. Source IP and controller ID are unverified hints; manual registration and existing pinned HTTPS authentication remain required. No credentials in advertisements. Host networking is enabled to receive LAN multicast; check firewall and existing port conflicts (8099 and 8443), and restrict access to trusted networks. Discovery is off by default. VLANs and multicast-filtering networks may require manual setup. No DALI telegrams are emitted by discovery.

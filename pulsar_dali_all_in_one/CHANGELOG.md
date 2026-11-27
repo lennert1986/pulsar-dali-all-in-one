@@ -1,3 +1,7 @@
+# 0.20.1
+- Opt-in LAN multicast discovery, automatic candidate list, expiry and manual trusted pairing.
+- Host networking for LAN multicast; check port conflicts and firewall.
+
 # 0.20.0
 - Combined installation snapshot export from Maintenance.
 - Existing remote identity checks retained.

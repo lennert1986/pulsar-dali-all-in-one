@@ -88,3 +88,12 @@ assert.equal(energyStats([{...g,power_w:undefined}],1100).power,null);
 assert 'picker.type="color"' in pages["configuration"]
 assert 'slider.type="range"' in pages["configuration"]
 assert 'className="event-bits"' in pages["configuration"]
+
+import discovery,json
+raw=json.dumps({"protocol":discovery.MAGIC,"controller_id":"other-controller","port":8443}).encode()
+assert discovery.parse(raw,"192.168.1.20","local")["host"]=="192.168.1.20"
+assert discovery.parse(raw,"192.168.1.20","other-controller") is None
+assert discovery.parse(raw,"8.8.8.8","local") is None
+assert discovery.parse(b"invalid","192.168.1.20","local") is None
+assert discovery.parse(raw*100,"192.168.1.20","local") is None
+assert 'id="discoveryStatus"' in pages["controllers"]

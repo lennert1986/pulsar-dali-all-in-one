@@ -559,6 +559,24 @@ PRESERVE=("name","device_types","fade_time","fade_rate","extended_fade_time","di
 PRESERVE += ("identity_read_at","capabilities_read_at","color_read_at","last_memory_bank","driver_firmware","driver_hardware","iec101","iec102","iec103","logical_control_devices","logical_control_gear","logical_index","gtin_raw","apparent_energy_kvah","apparent_power_va","gear_temperature_c","light_temperature_c")+tuple("sampled_bank_"+str(n) for n in range(202,208))
 
 def install(cls):
+    # One optional capability query for each scanned push-button/generic instance.
+    # No automatic feedback activation or permanent settings writes.
+    old_input=cls._read_control_device_details
+    def read_input(self,b,a):
+        import feedback
+        item=old_input(self,b,a)
+        for instance in item.get("instances",[]):
+            if instance.get("instance_type") not in (0,1):
+                continue
+            try:
+                cap=feedback.query(self,b,a,instance["instance"],feedback.QUERY_CAPABILITY)
+                features=feedback.decode(cap)
+                instance.update(feedback_capability=cap,feedback_features=features,
+                                feedback_detection="unknown" if cap is None else "reported")
+            except Exception:
+                instance.update(feedback_capability=None,feedback_features=None,feedback_detection="query_error")
+        return item
+    cls._read_control_device_details=read_input
     old_read=cls._read_gear_details
     def read(self,b,a):
         with self.cache_lock: prev=dict(self.gear[b].get(a,{}))

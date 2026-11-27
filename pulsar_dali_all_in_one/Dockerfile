@@ -13,6 +13,7 @@ COPY app/ui_layout.py /app/ui_layout.py
 COPY app/maintenance.py /app/maintenance.py
 COPY app/dashboards.py /app/dashboards.py
 COPY app/discovery.py /app/discovery.py
+COPY app/clock_sync.py /app/clock_sync.py
 COPY run.sh /run.sh
 RUN python3 /build/build_source.py /app/pulsar_dali_control.py && python3 -m py_compile /app/*.py && rm -rf /build && chmod a+x /run.sh
 LABEL io.hass.version="$BUILD_VERSION" io.hass.type="app" io.hass.arch="$BUILD_ARCH"

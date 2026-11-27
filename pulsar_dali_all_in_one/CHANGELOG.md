@@ -1,3 +1,8 @@
+# 0.20.2
+- Opt-in synchronized application UTC via registered HTTPS reference controller.
+- Monotonic holdover, RTT rejection, clock diagnostics.
+- No host clock writes or changes to existing event timestamps.
+
 # 0.20.1
 - Opt-in LAN multicast discovery, automatic candidate list, expiry and manual trusted pairing.
 - Host networking for LAN multicast; check port conflicts and firewall.

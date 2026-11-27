@@ -69,3 +69,7 @@ Maintenance exports a combined JSON snapshot of registered controllers, with sel
 ## Controller discovery (0.20.1)
 
 Enable `controller_discovery_enabled` on each participating controller. Controllers with `remote_api_enabled` advertise every 15 seconds over IPv4 multicast 239.255.84.43 UDP 38443, TTL 1. Candidates expire after 100 seconds. Controllers page refreshes automatically. Source IP and controller ID are unverified hints; manual registration and existing pinned HTTPS authentication remain required. No credentials in advertisements. Host networking is enabled to receive LAN multicast; check firewall and existing port conflicts (8099 and 8443), and restrict access to trusted networks. Discovery is off by default. VLANs and multicast-filtering networks may require manual setup. No DALI telegrams are emitted by discovery.
+
+## Application clock (0.20.2)
+
+Set `clock_reference_controller_id` to the actual ID of a registered, pinned HTTPS peer using its own system clock. Leave blank on reference. `clock_sync_interval` defaults to 60 seconds. Samples use monotonic round-trip compensation; slow samples are rejected, holdover expires after 900 seconds, and chained references are rejected. Maintenance displays system/application UTC and synchronization status. This creates a separate synchronized application clock exposed by API; existing event timestamps, system clock, TLS, timers and HAOS NTP are not changed. No claim of host clock synchronization. Reference system time must be accurate independently.

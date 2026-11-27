@@ -97,3 +97,15 @@ assert discovery.parse(raw,"8.8.8.8","local") is None
 assert discovery.parse(b"invalid","192.168.1.20","local") is None
 assert discovery.parse(raw*100,"192.168.1.20","local") is None
 assert 'id="discoveryStatus"' in pages["controllers"]
+
+import clock_sync
+a=clock_sync.sample(10,10.2,1700000000)
+assert abs(a[0]-1700000000.1)<0.000001
+assert abs(a[2]-0.1)<0.000001
+for bad in (float("nan"),None,0):
+    try:clock_sync.sample(0,1,bad)
+    except ValueError:pass
+    else:raise AssertionError("Invalid reference accepted")
+try:clock_sync.sample(0,3,1700000000)
+except ValueError:pass
+else:raise AssertionError("Slow sample accepted")

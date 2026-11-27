@@ -93,4 +93,58 @@ class Tests(unittest.TestCase):
         self.assertFalse(self.b.authorized("Bearer legacy","legacy",True))
         self.b.revoke("cd"*16)
         self.assertTrue(self.b.authorized("Bearer "+SECRET))
+    def test_master_cannot_be_subordinate(self):
+        children={"one":{"remote_controller_id":"pulsar-c"}}
+        self.b.children=lambda:children
+        self.assertEqual(self.b.role(),"master")
+        self.assertFalse(self.b.status(True)["can_receive"])
+        self.assertTrue(self.b.status(True)["can_add"])
+        self.assertFalse(self.b.authorized("Bearer legacy","legacy",True))
+        with self.assertRaises(ValueError):self.b.allow(True)
+        with self.assertRaises(ValueError):self.b.receive("start",payload(),"192.168.1.1",FP)
+        with self.b.outbound():
+            self.assertEqual(self.b.role(),"master")
+        children.clear()
+        self.assertEqual(self.b.role(),"free")
+        self.start()
+    def test_subordinate_cannot_be_master(self):
+        self.start()
+        self.b.decision(PID,True)
+        self.assertEqual(self.b.role(),"joining")
+        candidate=dict(host="192.168.1.3",port=8443,controller_id="pulsar-c")
+        with self.assertRaises(ValueError):self.b.begin(candidate,"C")
+        token=self.b.receive("finish",payload(),"192.168.1.1",FP)["token"]
+        self.assertEqual(self.b.role(),"child")
+        self.assertFalse(self.b.status(True)["can_add"])
+        self.assertTrue(self.b.authorized("Bearer "+token))
+        with self.assertRaises(ValueError):self.b.begin(candidate,"C")
+        with self.assertRaises(ValueError):
+            with self.b.outbound():self.fail("Child allowed outbound")
+        self.b.revoke(PID)
+        self.assertEqual(self.b.role(),"free")
+    def test_outgoing_reserves_role_and_closes_incoming(self):
+        self.start()
+        with self.b.outbound():
+            self.assertEqual(self.b.role(),"master")
+            self.assertEqual(self.b.status(True)["incoming"][0]["state"],"denied")
+            with self.assertRaises(ValueError):self.b.allow(True)
+            with self.assertRaises(ValueError):self.b.decision(PID,True)
+        self.assertEqual(self.b.role(),"free")
+    def test_persistent_mixed_role_conflict(self):
+        self.start()
+        self.b.decision(PID,True)
+        token=self.b.receive("finish",payload(),"192.168.1.1",FP)["token"]
+        children={"one":{"remote_controller_id":"pulsar-c"}}
+        restarted=Service("pulsar-b",self.path,children=lambda:children)
+        self.assertEqual(restarted.role(),"conflict")
+        self.assertFalse(restarted.authorized("Bearer "+token))
+        with self.assertRaises(ValueError):
+            with restarted.outbound():self.fail("Conflict allowed outbound")
+        restarted.revoke(PID)
+        self.assertEqual(restarted.role(),"master")
+    def test_legacy_receiver_cannot_send(self):
+        self.b.legacy_mode=True
+        self.assertEqual(self.b.role(),"legacy_receiver")
+        with self.assertRaises(ValueError):
+            with self.b.outbound():self.fail("Legacy receiver allowed outbound")
 if __name__=="__main__":unittest.main()

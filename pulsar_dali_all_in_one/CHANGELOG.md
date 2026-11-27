@@ -1,3 +1,10 @@
+# 0.21.2 – exclusive controller roles
+
+- Master and subordinate roles are mutually exclusive. Registered children or pending outgoing pairing reserve the master role; incoming pairing/approval and remote authorization are blocked. A subordinate cannot add remote controllers or send remote API commands.
+- Discovery advertises the current role as an unverified hint; Controllers UI shows role and disables incompatible actions. Role decisions are enforced independently by the backend.
+- Existing conflicting master/child configurations are blocked in both remote directions until the operator removes one side locally; local DALI remains available. No registry entries are silently deleted.
+- Manual legacy receiver mode cannot initiate remote connections while standalone. Master roles reject legacy inbound tokens. Update all controllers for consistent role enforcement.
+
 # 0.21.1 – single master and verified IP recovery
 
 - One incoming paired master per controller; further pairing blocked until master revoked. Multiple previous grants fail closed until locally resolved. Master may manage multiple controllers.

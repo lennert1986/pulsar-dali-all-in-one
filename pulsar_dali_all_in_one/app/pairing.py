@@ -1,4 +1,5 @@
 """Opt-in LAN pairing with explicit certificate-bound code comparison."""
+from contextlib import contextmanager
 import hashlib
 import hmac
 import http.client
@@ -69,18 +70,56 @@ def wire(host,action,data,pin=None):
         conn.close()
 
 class Service:
-    def __init__(self,uid,path="/data/remote/paired_grants.json"):
+    def __init__(self,uid,path="/data/remote/paired_grants.json",children=None,legacy_mode=False):
         self.uid=check(uid,UID)
         self.path=Path(path)
         self.lock=threading.RLock()
         self.until=0
         self.incoming={}
         self.outgoing={}
+        self.children=children or (lambda: {})
+        self.legacy_mode=legacy_mode
+        self.active_outbound=0
+    def role(self):
+        # Always acquire pairing lock before the registry lock (inside children).
+        with self.lock:
+            self.prune()
+            children=bool(self.children())
+            parent=bool(self.grants())
+            approved=any(v["state"]=="approved" for v in self.incoming.values())
+            outgoing=children or bool(self.outgoing) or self.active_outbound>0
+            if (parent or approved) and outgoing:
+                return "conflict"
+            if outgoing:return "master"
+            if parent:return "child"
+            if approved:return "joining"
+            if self.legacy_mode:return "legacy_receiver"
+            return "free"
+    def require_receiver(self):
+        if self.role() in ("master","conflict"):
+            raise ValueError("En master kan ikke have en master")
+    def require_sender(self):
+        if self.role() in ("child","joining","conflict","legacy_receiver"):
+            raise ValueError("En underordnet controller kan ikke være master")
+    def reserve_sender(self):
+        self.require_sender()
+        self.until=0
+        for row in self.incoming.values():
+            if row["state"]=="pending":row["state"]="denied"
+    @contextmanager
+    def outbound(self):
+        with self.lock:
+            self.reserve_sender()
+            self.active_outbound+=1
+        try:
+            yield
+        finally:
+            with self.lock:self.active_outbound-=1
     def prune(self):
         now=time.monotonic()
         for store in (self.incoming,self.outgoing):
             for k in list(store):
-                if store[k]["expires"]<=now:
+                if store[k]["expires"]<=now and store[k]["state"] not in ("connecting","finishing"):
                     del store[k]
     def grants(self):
         try:
@@ -104,6 +143,8 @@ class Service:
         token=header[7:]
         try:
             with self.lock:
+                if self.role() in ("master","conflict"):
+                    return False
                 grants=self.grants()
                 # Multiple legacy grants are a conflict; fail closed until the
                 # operator explicitly revokes all but one in local HA ingress.
@@ -138,7 +179,9 @@ class Service:
                 return [dict(id=k,host=v["host"],controller_id=v["controller_id"],code=v["code"],
                         state=v["state"],remaining=max(0,int(v["expires"]-now))) for k,v in store.items()]
             grants=self.grants()
-            return dict(ok=True,listening=listening,remaining=max(0,int(self.until-now)) if listening and not grants else 0,
+            role=self.role()
+            return dict(ok=True,listening=listening,remaining=max(0,int(self.until-now)) if listening and not grants and role not in ("master","conflict") else 0,
+                        role=role,child_count=len(self.children()),can_receive=role in ("free","legacy_receiver"),can_add=role in ("free","master"),
                         master_locked=bool(grants),master_conflict=len(grants)>1,
                         incoming=public(self.incoming),outgoing=public(self.outgoing),
                         grants=[dict(id=k,controller_id=v["controller_id"],host=v["host"]) for k,v in grants.items()])
@@ -146,6 +189,7 @@ class Service:
         if not listening:
             raise ValueError("Aktiver remote HTTPS først")
         with self.lock:
+            self.require_receiver()
             if self.grants():
                 raise ValueError("Fjern eksisterende master først")
             self.until=time.monotonic()+TTL
@@ -160,6 +204,7 @@ class Service:
             if not row or row["state"]!="pending" or (accept and time.monotonic()>=self.until):
                 raise ValueError("Udløbet eller behandlet")
             if accept:
+                self.require_receiver()
                 if self.grants() or any(v["state"]=="approved" for k,v in self.incoming.items() if k!=pid):
                     raise ValueError("Controller har allerede en master eller godkendt anmodning")
                 for k,v in self.incoming.items():
@@ -182,6 +227,7 @@ class Service:
             self.prune()
             now=time.monotonic()
             if action=="start":
+                self.require_receiver()
                 source=check(data.get("requester"),UID)
                 if self.grants() or any(v["state"]=="approved" for v in self.incoming.values()) or now>=self.until or source==self.uid or data.get("target")!=self.uid or pid in self.incoming or len(self.incoming)>=LIMIT:
                     raise ValueError("Parring lukket eller ugyldig")
@@ -192,6 +238,8 @@ class Service:
             row=self.incoming.get(pid)
             if action!="finish" or not row or row["host"]!=host or not hmac.compare_digest(row["secret_hash"],digest(secret)) or row["pin"]!=fingerprint(fp):
                 raise ValueError("Ukendt anmodning")
+            if row["state"] in ("approved","complete"):
+                self.require_receiver()
             if row["state"]=="approved":
                 grants=self.grants()
                 if grants:
@@ -213,6 +261,7 @@ class Service:
         secret=secrets.token_hex(32)
         with self.lock:
             self.prune()
+            self.reserve_sender()
             if len(self.outgoing)>=LIMIT or any(v["controller_id"]==target for v in self.outgoing.values()):
                 raise ValueError("Afslut eksisterende parring")
             self.outgoing[pid]=dict(host=host,controller_id=target,secret=secret,name=name,
@@ -232,6 +281,7 @@ class Service:
         pid=check(pid,PID)
         with self.lock:
             self.prune()
+            self.require_sender()
             row=self.outgoing.get(pid)
             if not row or row["state"]!="pending":
                 raise ValueError("Anmodningen er udløbet")
@@ -247,6 +297,8 @@ class Service:
                 return dict(ok=True,state=state)
             if state!="complete" or reply.get("controller_id")!=item["controller_id"]:
                 raise ValueError("Ugyldigt parringssvar")
+            with self.lock:
+                self.require_sender()
             register(item,check(reply.get("token"),HEX))
             with self.lock:self.outgoing.pop(pid,None)
             return dict(ok=True,state="complete")
@@ -262,12 +314,21 @@ class Service:
 
 _service=None
 _service_lock=threading.Lock()
-def service(h):
+def configure(uid,load,lock,legacy_mode=False):
     global _service
+    def children():
+        with lock:return load()
     with _service_lock:
-        if _service is None:
-            _service=Service(h.server.controller.controller_id)
+        _service=Service(uid,children=children,legacy_mode=legacy_mode)
+    return _service
+
+def current():
+    with _service_lock:
+        if _service is None:raise RuntimeError("Pairing service not initialized")
         return _service
+
+def service(h):
+    return current()
 
 def install(handler,app):
     old_get,old_post=handler.do_GET,handler.do_POST
@@ -276,6 +337,13 @@ def install(handler,app):
         remote=bool(getattr(h.server,"is_remote",False))
         match=re.search(r"/api/pairing/([a-z]+)$",path)
         if not path.startswith(WIRE) and not match:
+            # Reserve the master role for the entire manual add/update,
+            # including the final registry commit (not merely the HTTPS test).
+            if not remote and method=="POST" and path.endswith(("/api/controllers/add","/api/controllers/update")):
+                try:
+                    with service(h).outbound():return fallback(h)
+                except (ValueError,RuntimeError,OSError):
+                    return h._json(dict(ok=False,error="Controllerens rolle tillader ikke tilføjelse eller ændring af remote controllere"),409)
             return fallback(h)
         try:
             svc=service(h)
@@ -334,7 +402,7 @@ def install(handler,app):
             else:return h._json(dict(ok=False,error="not found"),404)
             return h._json(dict(ok=True))
         except (ValueError,KeyError,OSError,RuntimeError,TypeError,http.client.HTTPException):
-            return h._json(dict(ok=False,error="Parring kunne ikke gennemføres. Kontrollér parringsvinduet, eksisterende master, koden og HTTPS."),400)
+            return h._json(dict(ok=False,error="Parring kunne ikke gennemføres. Kontrollér controllerens rolle, parringsvinduet, koden og HTTPS."),400)
     def get(h):return dispatch(h,"GET",old_get)
     def post(h):return dispatch(h,"POST",old_post)
     handler.do_GET,handler.do_POST=get,post

@@ -1,7 +1,7 @@
 """Controllers pairing UI; no peer credential in browser."""
 import re
 PANEL=r'''<section class="card"><h2>Fundne controllere</h2><p class="hint">Klik Tilføj, og godkend på den anden controller. Discovery er endnu ikke verificeret.</p><p id="pairDiscovery" role="status">Indlæser…</p><div id="pairCandidates"></div></section>
-<section class="card"><h2>Parring</h2><p class="hint">Åbn Controllers på begge enheder. Tillad parring på modtageren, og sammenlign hele sikkerhedskoden på begge skærme.</p><div class="actions"><button type="button" class="primary" id="pairAllow">Tillad parring i 5 min.</button><button type="button" id="pairClose">Luk parring</button></div><p id="pairWindow"></p><div id="pairMessage" role="status" aria-live="polite"></div><div id="pairIncoming"></div><div id="pairOutgoing"></div></section>
+<section class="card"><h2>Parring</h2><p id="pairRole" role="status"></p><p class="hint">Åbn Controllers på begge enheder. Tillad parring på modtageren, og sammenlign hele sikkerhedskoden på begge skærme.</p><div class="actions"><button type="button" class="primary" id="pairAllow">Tillad parring i 5 min.</button><button type="button" id="pairClose">Luk parring</button></div><p id="pairWindow"></p><div id="pairMessage" role="status" aria-live="polite"></div><div id="pairIncoming"></div><div id="pairOutgoing"></div></section>
 <section class="card"><h2>Master-controller</h2><p class="hint">Denne controller kan kun have én master. Fjern den eksisterende master, før du parrer en ny.</p><div id="pairGrants"></div></section>
 <script>
 document.addEventListener("DOMContentLoaded",()=>{
@@ -23,18 +23,23 @@ document.addEventListener("DOMContentLoaded",()=>{
  }
  function render(){
    const d=get("pairCandidates");d.replaceChildren();
+   const roles={free:"Selvstændig",master:"Master",child:"Underordnet controller",joining:"Afventer master",conflict:"Rollekonflikt",legacy_receiver:"Manuel modtager",unknown:"Ukendt rolle"};
+   get("pairRole").textContent="Denne controllers rolle: "+(roles[state.role]||"Ukendt");
+   const manual=document.getElementById("pairManual");
+   if(manual){manual.querySelectorAll("input,button").forEach(e=>e.disabled=!state.can_add);}
    get("pairDiscovery").textContent=discovery.error||(!discovery.enabled?"Aktiver controller_discovery_enabled i add-on-indstillingerne.":(discovery.candidates||[]).length+" fundne controllere");
    for(const c of discovery.candidates||[]){
      const already=(registry||[]).some(x=>x.remote_controller_id===c.controller_id);
      const pending=state.outgoing.some(x=>x.controller_id===c.controller_id);
-     const item=row(d,(c.name||"Pulsar")+" · "+c.host+":"+c.port,"ID: "+c.controller_id+(c.version?" · v"+c.version:"")+" · "+(already?"Tilføjet":"Uverificeret"));
-     const b=button(already?"Tilføjet":pending?"Parring i gang":"Tilføj controller",async()=>{
+     const remoteBlocked=["master","child","joining","conflict"].includes(c.role);
+     const item=row(d,(c.name||"Pulsar")+" · "+c.host+":"+c.port,"ID: "+c.controller_id+(c.version?" · v"+c.version:"")+" · "+(roles[c.role]||"Ukendt rolle")+" · "+(already?"Tilføjet":"Uverificeret"));
+     const b=button(already?"Tilføjet":pending?"Parring i gang":remoteBlocked?"Kan ikke parres":"Tilføj controller",async()=>{
        const name=prompt("Navn på controller",c.name||"Pulsar "+c.host);if(name===null)return;
        await call("begin",{host:c.host,controller_id:c.controller_id,name});msg("Sammenlign koden på begge controllere. Godkend på modtageren, og bekræft derefter her.");
-     },true);b.disabled=already||pending;item.append(b);
+     },true);b.disabled=already||pending||remoteBlocked||!state.can_add;item.append(b);
    }
-   get("pairAllow").disabled=!state.listening||state.remaining>0||state.master_locked;
-   get("pairWindow").textContent=state.master_conflict?"Flere tidligere mastere fundet. Remote adgang er låst, indtil kun én er tilbage.":state.master_locked?"Parret med en master – ny parring er låst.":!state.listening?"Remote HTTPS er ikke aktiv. Aktivér remote_api_enabled og genstart.":state.remaining?"Parring åben i "+state.remaining+" sek.":"Parring lukket";
+   get("pairAllow").disabled=!state.listening||state.remaining>0||!state.can_receive;
+   get("pairWindow").textContent=state.role==="conflict"?"Rollekonflikt: fjern masteren eller alle underordnede controllere lokalt.":state.role==="master"?"Master – indgående parring er låst. Fjern alle underordnede controllere for at skifte rolle.":state.master_conflict?"Flere tidligere mastere fundet. Remote adgang er låst, indtil kun én er tilbage.":state.master_locked?"Parret med en master – ny parring er låst.":!state.listening?"Remote HTTPS er ikke aktiv. Aktivér remote_api_enabled og genstart.":state.remaining?"Parring åben i "+state.remaining+" sek.":"Parring lukket";
    for(const direction of ["incoming","outgoing"]){
      const root=get(direction==="incoming"?"pairIncoming":"pairOutgoing");root.replaceChildren();
      for(const p of state[direction]){
@@ -55,7 +60,7 @@ document.addEventListener("DOMContentLoaded",()=>{
      }
    }
    const grants=get("pairGrants");grants.replaceChildren();
-   if(!state.grants.length)grants.append(node("p","Ingen master parret."));
+   if(!state.grants.length)grants.append(node("p",state.role==="master"?"Denne controller er selv master.":"Ingen master parret."));
    for(const g of state.grants){const item=row(grants,g.controller_id,g.host);item.append(button("Fjern master",async()=>{if(confirm("Fjern masterens adgang? Du skal parre igen, hvis den skal tilsluttes.")){await call("revoke",{id:g.id});msg("Adgang tilbagekaldt.")}}))}
  }
  async function refresh(){
@@ -72,7 +77,7 @@ document.addEventListener("DOMContentLoaded",()=>{
 def install(page):
     match=re.search(r'(<section class="card"><h2>Tilføj remote controller</h2>.*?</section>)',page,flags=re.S)
     if not match:raise RuntimeError("Manual controller form not found")
-    manual=match.group(1).replace('<section class="card">','<details class="card"><summary>Avanceret – manuel tilføjelse</summary>',1).replace("</section>","</details>",1)
+    manual=match.group(1).replace('<section class="card">','<details class="card" id="pairManual"><summary>Avanceret – manuel tilføjelse</summary>',1).replace("</section>","</details>",1)
     page=page[:match.start()]+page[match.end():]
     anchor="</div><script>"
     if anchor not in page:raise RuntimeError("Controllers page wrapper missing")

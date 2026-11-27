@@ -15,6 +15,7 @@ COPY app/dashboards.py /app/dashboards.py
 COPY app/discovery.py /app/discovery.py
 COPY app/clock_sync.py /app/clock_sync.py
 COPY app/pairing.py /app/pairing.py
+COPY app/reconnect.py /app/reconnect.py
 COPY app/pairing_ui.py /app/pairing_ui.py
 COPY run.sh /run.sh
 RUN python3 /build/build_source.py /app/pulsar_dali_control.py && python3 -m py_compile /app/*.py && rm -rf /build && chmod a+x /run.sh

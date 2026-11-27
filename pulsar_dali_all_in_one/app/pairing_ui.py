@@ -2,7 +2,7 @@
 import re
 PANEL=r'''<section class="card"><h2>Fundne controllere</h2><p class="hint">Klik Tilføj, og godkend på den anden controller. Discovery er endnu ikke verificeret.</p><p id="pairDiscovery" role="status">Indlæser…</p><div id="pairCandidates"></div></section>
 <section class="card"><h2>Parring</h2><p class="hint">Åbn Controllers på begge enheder. Tillad parring på modtageren, og sammenlign hele sikkerhedskoden på begge skærme.</p><div class="actions"><button type="button" class="primary" id="pairAllow">Tillad parring i 5 min.</button><button type="button" id="pairClose">Luk parring</button></div><p id="pairWindow"></p><div id="pairMessage" role="status" aria-live="polite"></div><div id="pairIncoming"></div><div id="pairOutgoing"></div></section>
-<section class="card"><h2>Controllere med adgang til denne</h2><p class="hint">Parring giver samme styrings- og konfigurationsadgang som eksisterende remote API. Tilbagekald en adgang her.</p><div id="pairGrants"></div></section>
+<section class="card"><h2>Master-controller</h2><p class="hint">Denne controller kan kun have én master. Fjern den eksisterende master, før du parrer en ny.</p><div id="pairGrants"></div></section>
 <script>
 document.addEventListener("DOMContentLoaded",()=>{
  const get=id=>document.getElementById(id);
@@ -33,8 +33,8 @@ document.addEventListener("DOMContentLoaded",()=>{
        await call("begin",{host:c.host,controller_id:c.controller_id,name});msg("Sammenlign koden på begge controllere. Godkend på modtageren, og bekræft derefter her.");
      },true);b.disabled=already||pending;item.append(b);
    }
-   get("pairAllow").disabled=!state.listening||state.remaining>0;
-   get("pairWindow").textContent=!state.listening?"Remote HTTPS er ikke aktiv. Aktivér remote_api_enabled og genstart.":state.remaining?"Parring åben i "+state.remaining+" sek.":"Parring lukket";
+   get("pairAllow").disabled=!state.listening||state.remaining>0||state.master_locked;
+   get("pairWindow").textContent=state.master_conflict?"Flere tidligere mastere fundet. Remote adgang er låst, indtil kun én er tilbage.":state.master_locked?"Parret med en master – ny parring er låst.":!state.listening?"Remote HTTPS er ikke aktiv. Aktivér remote_api_enabled og genstart.":state.remaining?"Parring åben i "+state.remaining+" sek.":"Parring lukket";
    for(const direction of ["incoming","outgoing"]){
      const root=get(direction==="incoming"?"pairIncoming":"pairOutgoing");root.replaceChildren();
      for(const p of state[direction]){
@@ -55,12 +55,12 @@ document.addEventListener("DOMContentLoaded",()=>{
      }
    }
    const grants=get("pairGrants");grants.replaceChildren();
-   if(!state.grants.length)grants.append(node("p","Ingen parrede controllere."));
-   for(const g of state.grants){const item=row(grants,g.controller_id,g.host);item.append(button("Tilbagekald adgang",async()=>{if(confirm("Fjern denne controllers adgang?")){await call("revoke",{id:g.id});msg("Adgang tilbagekaldt.")}}))}
+   if(!state.grants.length)grants.append(node("p","Ingen master parret."));
+   for(const g of state.grants){const item=row(grants,g.controller_id,g.host);item.append(button("Fjern master",async()=>{if(confirm("Fjern masterens adgang? Du skal parre igen, hvis den skal tilsluttes.")){await call("revoke",{id:g.id});msg("Adgang tilbagekaldt.")}}))}
  }
  async function refresh(){
    if(busy)return;busy=true;
-   try{[state,discovery]=await Promise.all([call("status"),req("api/discovery")]);render()}
+   try{[state,discovery]=await Promise.all([call("status"),req("api/discovery")]);const latest=await req("api/controllers");if(JSON.stringify(latest.controllers||[])!==JSON.stringify(registry||[]))await loadControllers();render()}
    catch(e){get("pairDiscovery").textContent=e.message}
    finally{busy=false}
  }

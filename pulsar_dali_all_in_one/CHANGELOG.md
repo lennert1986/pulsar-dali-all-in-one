@@ -1,3 +1,11 @@
+# 0.21.4 – feedback settings, local button bindings and MQTT
+
+- Configure active/inactive LED brightness (0–255), RGB colour code (1–63) and feedback timing with DTR0, send-twice and exact readback. Explicit isolated test confirmation; only visible-only feedback, no redundant NVM writes.
+- Opt-in local short-press and long-press actions (toggle/on/off/step dim) bind a push-button to one same-bus gear or a group of up to 16 known gear. Persist bindings locally and validate stable gear UID, random address and live levels before use. No Home Assistant or MQTT dependency. Group membership changes require re-saving.
+- Opt-in follow/inverse feedback based on live target levels, round-robin, steady timing required. No automatic persistent settings writes. Drop old events rather than replay after busy scans.
+- Optional MQTT discovery buttons for activate/stop feedback (not falsely reported light on/off), local/remote through existing bridge. Manual MQTT disabled on automatically managed feedback. No actual LED state asserted from no reply.
+- Physical testing pending. Source input identity remains bus/address/instance; remove bindings before replacing/readdressing input hardware. No cross-controller bindings or scenes yet.
+
 # 0.21.3 – DALI-2 feedback groundwork
 
 - Correct IEC 62386-332 feedback query opcodes (0x4F through 0x49), feature addressing on instance-number level (0x20 | instance), and single-frame ACTIVATE/STOP (0x10/0x11).

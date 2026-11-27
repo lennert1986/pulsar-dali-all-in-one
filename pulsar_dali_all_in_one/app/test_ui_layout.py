@@ -62,6 +62,8 @@ assert(!availableActions({kind:"gear",device_type:6}).includes("color"));
 assert(availableActions({kind:"gear",device_type:8}).includes("color"));
 assert(!availableActions({kind:"gear",device_type:8}).includes("curve"));
 assert.deepEqual(availableActions({kind:"input",instance_type:3}),["input_read","input_config"]);
+assert(availableActions({kind:"input",instance_type:1}).includes("feedback_read"));
+assert(availableActions({kind:"input",instance_type:1}).includes("feedback"));
 assert(availableActions({kind:"gear",device_type:1}).includes("emergency_read"));
 assert(!availableActions({kind:"gear",device_type:1}).includes("reset"));
 assert(!availableActions({kind:"gear",device_type:255,device_types:[1,6]}).includes("restore_apply"));

@@ -102,6 +102,19 @@ def run(c,d):
             if record("Control device status",lambda:c._dali2_query_device(bus,address,0x30)) is None: return report
             for label,op in (("Instance type",0x80),("Resolution",0x81),("Instance status",0x83),("Event priority",0x84),("Enabled",0x86),("Event scheme",0x8B),("Event filter byte 0",0x90),("Event filter byte 1",0x91),("Event filter byte 2",0x92)):
                 record(label,lambda op=op:c._dali2_query_instance(bus,address,instance,op),True)
+            import feedback
+            cap=record("Feedback capability (IEC 62386-332)",lambda:feedback.query(c,bus,address,instance,feedback.QUERY_CAPABILITY),True)
+            if cap is not None:
+                features=record("Feedback features",lambda:feedback.decode(cap),True)
+                if features and cap:
+                    record("Feedback active (YES / no reply)",lambda:feedback.active(feedback.query(c,bus,address,instance,feedback.QUERY_ACTIVE)),True)
+                    record("Feedback timing",lambda:feedback.query(c,bus,address,instance,feedback.QUERY_TIMING),True)
+                    if features["visible"]:
+                        for label,op in (("Active brightness",feedback.QUERY_ACTIVE_BRIGHTNESS),("Inactive brightness",feedback.QUERY_INACTIVE_BRIGHTNESS)):
+                            record(label,lambda op=op:feedback.query(c,bus,address,instance,op),True)
+                    if features["colour"]:
+                        for label,op in (("Active colour",feedback.QUERY_ACTIVE_COLOUR),("Inactive colour",feedback.QUERY_INACTIVE_COLOUR)):
+                            record(label,lambda op=op:feedback.query(c,bus,address,instance,op),True)
             return report
         if record("Physical identity (random address)",identity) is None: return report
         if mode=="basic":
@@ -170,13 +183,13 @@ body{margin:0;background:var(--primary-background-color,Canvas);color:var(--prim
 </div><div class="fields" id="memory" hidden><label>Bank<input id="bank" type="number" min="0" max="255" value="0"></label><label>Startadresse<input id="offset" type="number" min="0" max="255" value="0"></label><label>Antal bytes<input id="count" type="number" min="1" max="16" value="16"></label></div>
 <label class="check" id="volatile" hidden><input id="confirm" type="checkbox">Tillad midlertidige DTR/device-type-kommandoer. Test kun når anden DALI-commissioning er stoppet.</label>
 <div id="advanced" hidden><div id="deviceOverview" hidden></div><div id="directSettings" hidden></div><div id="deviceOptions" class="device-options" hidden></div><details id="busTools" hidden><summary>Busværktøjer (ingen valgt enhed)</summary><button type="button" id="commissionInput">Adresservér én ny DALI-2-enhed</button><p class="muted">Kun på isoleret testbus.</p></details><div class="fields"><label id="actionLabel">Handling<select id="action">
-<option value="inspect">Læs egenskaber og fade</option><option value="basic_config">Grundparametre</option><option value="input_read">Læs sensorstatus</option><option value="memory">Læs og gem memory bank</option><option value="name">Navngiv armatur</option>
+<option value="inspect">Læs egenskaber og fade</option><option value="basic_config">Grundparametre</option><option value="input_read">Læs sensorstatus</option><option value="feedback_read">Læs feedback</option><option value="feedback">Test feedback</option><option value="memory">Læs og gem memory bank</option><option value="name">Navngiv armatur</option>
 <option value="fade">Indstil fade</option><option value="curve">Indstil DT6 dimmekurve</option><option value="color">Indstil DT8 farve</option>
 <option value="input_config">DALI-2 sensorparameter</option><option value="commission_input">Adresservér én ny DALI-2 enhed</option>
 <option value="restore_preview">Backup: vis restore-plan</option><option value="restore_apply">Backup: udfør restore / udskiftning</option>
 <option value="emergency_read">DT1 læs status</option><option value="emergency_test">DT1 manuel test</option><option value="reset">Reset armatur</option>
 </select></label></div><div id="argFields" class="pulsar-args"></div><div hidden><textarea id="args"></textarea></div>
-<p id="hint" class="muted"></p><label class="check"><input id="writeconfirm" type="checkbox">Bekræft handlingen. Anden DALI-commissioning er stoppet.</label><label class="check"><input id="testbus" type="checkbox">Isoleret testbus (påkrævet ved DALI-2 adressering og nødlystest).</label>
+<p id="hint" class="muted"></p><label class="check"><input id="writeconfirm" type="checkbox">Bekræft handlingen. Anden DALI-commissioning er stoppet.</label><label class="check"><input id="testbus" type="checkbox">Isoleret testbus (påkrævet ved DALI-2 adressering, nødlys- og feedback-test).</label>
 <p class="muted" id="warning" hidden>Restore kan gennemføre delvise ændringer. DT1-test erstatter ikke godkendt nødlysvedligehold.</p></div><div class="actions"><button id="refresh">Opdater enheder</button><button class="primary" id="run" disabled>Kør test</button><button id="export" disabled>Eksportér JSON</button></div><p id="status" class="pulsar-state" role="status">Indlæser…</p>
 </section><section id="resultSection"><h2>Resultat</h2><p id="summary" class="muted">Ingen test kørt.</p><div id="metrics" class="pulsar-metrics"></div><div class="scroll"><table><thead><tr><th>Kontrol</th><th>Status</th><th>Værdi / fejl</th></tr></thead><tbody id="results"></tbody></table></div></section>
 <section id="telegramSection"><h2>Telegramlog</h2><p class="muted">TX = kodet forespørgsel til STM32. RX = svarpayload efter validering af ramme/checksum. Ingen antagelse om faktisk busmåling.</p><div class="scroll"><table><thead><tr><th>TX</th><th>RX</th><th>ms</th></tr></thead><tbody id="trace"></tbody></table></div></section>
@@ -192,7 +205,7 @@ function currentDevice(){return devices[Number($("device").value)-1];}
 function typesOf(g){return [...new Set([...(Array.isArray(g.device_types)?g.device_types:[]),g.device_type].filter(v=>Number.isInteger(v)&&v!==255))];}
 function availableActions(g){
  if(!g)return [];
- if(g.kind==="input")return ["input_read","input_config"];
+ if(g.kind==="input")return ["input_read","input_config",...(g.instance_type===1||g.instance_type===0||g.feedback_features?.visible?["feedback_read","feedback"]:[])];
  const t=typesOf(g),a=["inspect","name","basic_config","fade","memory"];
  if(t.includes(6))a.push("curve");
  if(t.includes(8))a.push("color");
@@ -204,6 +217,7 @@ const groups=[
  ["Generelt",[["inspect","Læs egenskaber"],["name","Navn"],["basic_config","Grundparametre"],["fade","Fade"],["curve","Dimmekurve"]]],
  ["Farvestyring",[["color","Farve / Tunable White"]]],
  ["Identifikation og diagnose",[["memory","Memory Banks / D4i"],["input_read","Læs sensorstatus"],["input_config","Sensorindstillinger"]]],
+ ["Feedback-LED", [["feedback_read","Læs feedback-egenskaber"],["feedback","Manuel feedback-test (eksperimentel)"]]],
  ["Vedligeholdelse",[["restore_preview","Restore-plan"],["restore_apply","Gendan / udskift"],["reset","Reset"],["emergency_read","Nødlysstatus"],["emergency_test","Nødlystest"]]]
 ];
 function describeDevice(g){
@@ -211,7 +225,7 @@ function describeDevice(g){
  const title=document.createElement("h2");title.textContent=g.kind==="input"?(g.instance_type_name||"DALI-2 input")+" · adresse "+g.address+" / instance "+g.instance:g.name||"Armatur "+g.address;root.append(title);
  const meta=document.createElement("p");meta.className="muted";meta.textContent="DALI "+g.bus+" · "+(g.kind==="input"?"Instance "+g.instance:typesOf(g).map(t=>"DT"+t).join(", ")||"Enhedstype ikke afklaret")+" · "+(g.address_conflict?"Adressekonflikt":g.online===false?"Offline":"Registreret");root.append(meta);
  const grid=document.createElement("div");grid.className="device-facts";
- const fields=g.kind==="input"?[["Instancetype",g.instance_type],["Aktiveret",g.enabled],["Værdi",g.input_value],["Tilstedeværelse",g.occupied],["Eventfilter",g.event_filter]]:[["Aktuelt niveau",g.actual_level],["Min. niveau",g.min_level],["Maks. niveau",g.max_level],["Fade Time",g.fade_time],["Fade Rate",g.fade_rate],["GTIN",g.gtin],["Identifikation",g.identification_raw],["Firmware",g.driver_firmware],["Hardware",g.driver_hardware],["Sidste bank",g.last_memory_bank],["Effekt (senest målt W)",g.power_w],["Energi (senest målt kWh)",g.energy_kwh],["Batteri (senest målt %)",g.battery_percent]];
+ const fields=g.kind==="input"?[["Instancetype",g.instance_type],["Aktiveret",g.enabled],["Værdi",g.input_value],["Tilstedeværelse",g.occupied],["Eventfilter",g.event_filter],["Feedback",g.feedback_features?.visible?"Synlig feedback":g.feedback_detection==="reported"?"Ingen synlig feedback rapporteret":"Ikke afklaret"],["Feedback lysstyrke",g.feedback_features?.brightness===true?"Variabel":g.feedback_features?.visible?"Tænd/sluk":"Ikke afklaret"],["Feedback farve",g.feedback_features?.colour===true?"Understøttet":"Ikke afklaret"]]:[["Aktuelt niveau",g.actual_level],["Min. niveau",g.min_level],["Maks. niveau",g.max_level],["Fade Time",g.fade_time],["Fade Rate",g.fade_rate],["GTIN",g.gtin],["Identifikation",g.identification_raw],["Firmware",g.driver_firmware],["Hardware",g.driver_hardware],["Sidste bank",g.last_memory_bank],["Effekt (senest målt W)",g.power_w],["Energi (senest målt kWh)",g.energy_kwh],["Batteri (senest målt %)",g.battery_percent]];
  for(const [label,v] of fields){if(v===undefined||v===null)continue;const box=document.createElement("div"),k=document.createElement("small"),val=document.createElement("strong");k.textContent=label;val.textContent=typeof v==="boolean"?(v?"Ja":"Nej"):String(v);box.append(k,val);grid.append(box);}
  root.append(grid);
 }
@@ -321,14 +335,16 @@ function advancedFields(){
  const select=(id,label,v,choices)=>add(id,label,"select",v,{choices});
  const text=(id,label,v)=>add(id,label,"text",v);
  $("warning").hidden=!["restore_apply","restore_preview","reset","commission_input","emergency_test"].includes(a);
- $("testbus").parentElement.hidden=!["commission_input","emergency_test"].includes(a);
- $("writeconfirm").parentElement.hidden=["name","inspect","input_read","emergency_read","restore_preview"].includes(a);
+ $("testbus").parentElement.hidden=!["commission_input","emergency_test","feedback"].includes(a);
+ $("writeconfirm").parentElement.hidden=["name","inspect","input_read","feedback_read","emergency_read","restore_preview"].includes(a);
  $("hint").textContent="";
  if(a==="basic_config"){
    const rows=[["min_level","Minimum Level"],["max_level","Maximum Level"],["power_on_level","Power-on Level"],["system_failure_level","System Failure Level"]].filter(([k])=>Number.isInteger(g[k]));
    if(!rows.length){$("hint").textContent="Ingen grundparametre aflæst. Opdater eller scan enheden først.";return;}
    const p=select("parameter","Parameter",rows[0][0],rows),v=numeric("value","Ny værdi",g[p.value],0,254);
    const update=()=>{v.max=["power_on_level","system_failure_level"].includes(p.value)?255:254;v.value=g[p.value];};p.onchange=update;update();$("hint").textContent="Aktuel værdi fra seneste aflæsning. Ændringer verificeres med tilbageaflæsning.";
+ }else if(a==="feedback_read"){$("hint").textContent="Læs feedback-egenskaber og aktive/inaktive værdier. Intet svar er ikke bevis for manglende support.";
+ }else if(a==="feedback"){select("value","Feedback-tilstand","", [["","Vælg handling"],[1,"Aktivér feedback"],[0,"Stop feedback"]]);$("hint").textContent="Eksperimentel test på isoleret bus. Kræver synlig feedback uden lyd. Aktiv/inaktiv er ikke nødvendigvis LED tændt/slukket.";
  }else if(a==="input_read"){$("hint").textContent="Læs den valgte instances aktuelle værdi.";
  }else if(a==="fade"){
    const fadeChoices=[["fade_time","Fade Time"],["fade_rate","Fade Rate"],["extended_fade_time","Extended Fade Time"]].filter(([k])=>k!=="extended_fade_time"||Number.isInteger(g[k]));
@@ -400,9 +416,10 @@ function paramsFromForm(){
    if(!e.checkValidity()){e.reportValidity();throw Error("Kontrollér "+e.closest("label").textContent);}
    const id=e.dataset.arg;
    if(e.type==="checkbox")out[id]=e.checked;
-   else if(e.type==="number"||["source_bus","source_address","channels"].includes(id)||(a==="curve"&&id==="value"))out[id]=Number(e.value);
+   else if(e.type==="number"||["source_bus","source_address","channels"].includes(id)||(["curve","feedback"].includes(a)&&id==="value"))out[id]=Number(e.value);
    else out[id]=e.value.trim();
  }
+ if(a==="feedback"&&$("arg_value").value==="")throw Error("Vælg feedback-handling");
  if(a==="memory")delete out.bank_choice;
  if(a==="fade"&&out.parameter==="extended_fade_time"&&(out.value&15)>4)throw Error("Reserveret extended fade kode");
  if(a==="input_config"){const row=inputFields.find(x=>x[0]===out.parameter);if(!/^(?:\d+|0x[0-9a-f]+)$/i.test(out.value))throw Error("Indtast et heltal");out.value=Number(out.value);if(!row||!Number.isInteger(out.value)||out.value<row[2]||out.value>row[3])throw Error("Parameter uden for område");}
@@ -452,7 +469,7 @@ function render(r){
  for(const x of r.checks||[]){const tr=document.createElement("tr");cell(tr,x.test);cell(tr,({pass:"Bestået",no_reply:"Intet svar",error:"Fejl",skipped:"Sprunget over",unknown:"Ukendt"})[x.status]||x.status,x.status);cell(tr,x.detail??x.value);$("results").append(tr);}
  for(const x of r.telegram_log||[]){const tr=document.createElement("tr");cell(tr,x.tx,"mono");cell(tr,x.error||x.response_payload,"mono");cell(tr,x.ms);$("trace").append(tr);}
 }
-async function run(){if(busy||!snapshot)return;clear();const c=selected(),mode=$("mode").value,g=devices[Number($("device").value)-1];const d={controller_id:snapshot.controller_id,bus:Number($("bus").value),mode,confirm_volatile:$("confirm").checked};if(needsDevice()){if(!g)return;d.address=g.address;d.uid=g.ha_uid;d.instance=g.instance;}if(mode==="advanced"){try{if(configurationPage&&!busAction&&!availableActions(g).includes(action()))throw Error("Handlingen passer ikke til den valgte enhed");const params=paramsFromForm();Object.assign(d,params,{controller_id:snapshot.controller_id,bus:Number($("bus").value),mode,action:action(),address:g?.address,uid:g?.ha_uid,instance:g?.instance,confirm:$("writeconfirm").checked||["name","inspect","input_read","emergency_read","restore_preview"].includes(action()),test_bus:$("testbus").checked});if(!d.confirm){status("Bekræft handlingen først.","error");return;}if(["commission_input","emergency_test"].includes(action())&&!d.test_bus){status("Bekræft isoleret testbus.","error");return;}}catch(e){status(String(e));return;}}if(mode==="memory")Object.assign(d,{bank:Number($("bank").value),offset:Number($("offset").value),count:Number($("count").value)});if(["memory","capabilities"].includes(mode)&&!d.confirm_volatile){status("Bekræft de midlertidige buskommandoer først.");return;}lock(true);status((configurationPage?"Udfører handling på ":"Test kører på ")+c.name+" · DALI "+d.bus+"…");try{report=c.id==="local"?await req("api/lab/run",d):await req("api/lab/remote",{registry_id:c.id,controller_id:d.controller_id,operation:"run",test:d});if(report.controller_id!==d.controller_id)throw Error("Forkert controller i svar");render(report);if(configurationPage){try{await refreshSelected(deviceKey(g),d.action);}catch(e){status("Handling udført; opdatering af enhed mislykkedes: "+e.message,"error");return;}}status(report.ok===false?"Delvis handling eller fejl: "+(report.error||"se resultat"):mode==="advanced"?"Handling afsluttet. Se resultat og eventuel read-back.":"Test afsluttet. No reply kan betyde manglende understøttelse eller kommunikationsfejl.",report.ok===false?"error":"success");}catch(e){report=null;status(String(e),"error");}finally{$("writeconfirm").checked=false;$("testbus").checked=false;lock(false);}}
+async function run(){if(busy||!snapshot)return;clear();const c=selected(),mode=$("mode").value,g=devices[Number($("device").value)-1];const d={controller_id:snapshot.controller_id,bus:Number($("bus").value),mode,confirm_volatile:$("confirm").checked};if(needsDevice()){if(!g)return;d.address=g.address;d.uid=g.ha_uid;d.instance=g.instance;}if(mode==="advanced"){try{if(configurationPage&&!busAction&&!availableActions(g).includes(action()))throw Error("Handlingen passer ikke til den valgte enhed");const params=paramsFromForm();Object.assign(d,params,{controller_id:snapshot.controller_id,bus:Number($("bus").value),mode,action:action(),address:g?.address,uid:g?.ha_uid,instance:g?.instance,confirm:$("writeconfirm").checked||["name","inspect","input_read","feedback_read","emergency_read","restore_preview"].includes(action()),test_bus:$("testbus").checked});if(!d.confirm){status("Bekræft handlingen først.","error");return;}if(["commission_input","emergency_test","feedback"].includes(action())&&!d.test_bus){status("Bekræft isoleret testbus.","error");return;}}catch(e){status(String(e));return;}}if(mode==="memory")Object.assign(d,{bank:Number($("bank").value),offset:Number($("offset").value),count:Number($("count").value)});if(["memory","capabilities"].includes(mode)&&!d.confirm_volatile){status("Bekræft de midlertidige buskommandoer først.");return;}lock(true);status((configurationPage?"Udfører handling på ":"Test kører på ")+c.name+" · DALI "+d.bus+"…");try{report=c.id==="local"?await req("api/lab/run",d):await req("api/lab/remote",{registry_id:c.id,controller_id:d.controller_id,operation:"run",test:d});if(report.controller_id!==d.controller_id)throw Error("Forkert controller i svar");render(report);if(configurationPage){try{await refreshSelected(deviceKey(g),d.action);}catch(e){status("Handling udført; opdatering af enhed mislykkedes: "+e.message,"error");return;}}status(report.ok===false?"Delvis handling eller fejl: "+(report.error||"se resultat"):mode==="advanced"?"Handling afsluttet. Se resultat og eventuel read-back.":"Test afsluttet. No reply kan betyde manglende understøttelse eller kommunikationsfejl.",report.ok===false?"error":"success");}catch(e){report=null;status(String(e),"error");}finally{$("writeconfirm").checked=false;$("testbus").checked=false;lock(false);}}
 $("controller").onchange=()=>{localStorage.setItem("pulsar_active_controller",$("controller").value);load();};$("refresh").onclick=load;$("bus").onchange=()=>{clear();populate();};$("mode").onchange=()=>{clear();advancedFields();populate();};$("action").onchange=()=>{clear();advancedFields();populate();};$("device").onchange=()=>{clear();if($("mode").value==="advanced"){deviceOptions();advancedFields();}lock(false);};$("run").onclick=run;
 $("commissionInput").onclick=()=>{if(busy||!snapshot||!configurationPage||currentDevice())return;busAction=true;clear();$("action").replaceChildren();option($("action"),"commission_input","Adresservér én ny enhed");$("action").value="commission_input";advancedFields();lock(false);};
 if(configurationPage)deviceOptions();advancedFields();

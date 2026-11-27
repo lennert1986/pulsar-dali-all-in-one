@@ -21,6 +21,10 @@ class Fake:
     def query(self,b,a,n): return self._s1or(b,0x900F)
     def _dali2_query_device(self,*a): return 1
     def _dali2_query_instance(self,*a): return 2
+    def _control_device_address(self,a):return (a<<1)|1
+    def _s2or(self,b,op,inst,addr):
+        self.calls.append(("feedback",op,inst,addr))
+        return {0x4F:7,0x4E:255,0x4D:255,0x4C:254,0x4A:0,0x4B:63,0x49:1}.get(op)
 class LabTest(unittest.TestCase):
     def req(self,c,mode,**kw):
         return run(c,dict(controller_id="test",bus=1,address=7,uid="stable",mode=mode,**kw))
@@ -54,7 +58,9 @@ class LabTest(unittest.TestCase):
     def test_input(self):
         c=Fake()
         r=run(c,dict(controller_id="test",bus=1,address=2,instance=0,mode="input"))
-        self.assertTrue(r["summary"]["pass"]>=10)
+        self.assertTrue(r["summary"]["pass"]>=17)
+        self.assertIn(("feedback",0x4F,0x20,5),c.calls)
+        self.assertTrue(any(x["test"]=="Feedback features" and x["value"]["colour"] for x in r["checks"]))
     def test_reject_reset(self):
         with self.assertRaises(ValueError): self.req(Fake(),"reset")
 if __name__=="__main__": unittest.main()

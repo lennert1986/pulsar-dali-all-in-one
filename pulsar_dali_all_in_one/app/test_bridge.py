@@ -20,4 +20,17 @@ class Tests(unittest.TestCase):
         self.assertEqual(entry()["route"]["address"],9)
         s["gear"][0]["address_conflict"]=True
         self.assertFalse(entry()["ok"])
+    def test_feedback_mqtt(self):
+        s=dict(controller_id="test",buses={"1":{"online":True}},control_devices=[dict(bus=1,address=2,online=True)],
+               input_instances=[dict(bus=1,address=2,instance=0,instance_type=1,feedback_features=dict(visible=True,audible=False))],feedback_mqtt_enabled=True)
+        def entries():return [e for e in catalog(s,"Test","homeassistant","av").values() if (e.get("route") or {}).get("kind")=="feedback"]
+        self.assertEqual(len(entries()),2)
+        for e in entries():
+            path,d,timeout=request(e["route"],"button","PRESS")
+            self.assertEqual(path,"/api/lab/run");self.assertEqual(d["action"],"feedback_mqtt")
+            self.assertEqual(d["controller_id"],"test")
+        s["input_instances"][0]["local_binding"]={"feedback_mode":"follow"}
+        self.assertFalse(entries())
+        s["input_instances"][0].pop("local_binding");s["feedback_mqtt_enabled"]=False
+        self.assertFalse(entries())
 if __name__=="__main__": unittest.main()

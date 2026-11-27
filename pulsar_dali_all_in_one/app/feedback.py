@@ -1,5 +1,5 @@
 """IEC 62386-332 feedback, corrected query opcodes (COR1:2019).
-No persistent writes, automatic activation, or assumption that active=LED on.
+Explicit parameter writes, with readback; active mode is not proof of LED light.
 """
 QUERY_CAPABILITY=0x4F
 QUERY_ACTIVE=0x4E
@@ -65,3 +65,43 @@ def command(c,b,a,inst,value):
                 command_sent=True,readback_verified=bool(value and state is True and after==cap),
                 target_responded=after==cap,persistent_writes=False,
                 note="Active mode is not proof of visible light. No reply is not proof of inactive mode.")
+
+PARAMS={
+    "active_brightness":(0x13,QUERY_ACTIVE_BRIGHTNESS,0,255),
+    "active_colour":(0x14,QUERY_ACTIVE_COLOUR,1,63),
+    "inactive_brightness":(0x15,QUERY_INACTIVE_BRIGHTNESS,0,255),
+    "inactive_colour":(0x16,QUERY_INACTIVE_COLOUR,1,63),
+    "feedback_timing":(0x12,QUERY_TIMING,0,255),
+}
+
+def visible(c,b,a,inst):
+    cap=query(c,b,a,inst,QUERY_CAPABILITY)
+    features=decode(cap)
+    if not features or not features["visible"] or features["audible"]:
+        raise ValueError("Visible-only feedback capability not confirmed")
+    return features
+
+def configure(c,b,a,inst,parameter,value):
+    if parameter not in PARAMS:raise ValueError("Unknown feedback parameter")
+    op,readback,lo,hi=PARAMS[parameter]
+    if type(value) is not int or not lo<=value<=hi:raise ValueError("Invalid feedback value")
+    features=visible(c,b,a,inst)
+    if parameter.endswith("colour") and not features["colour"]:
+        raise ValueError("Colour not supported")
+    if parameter.endswith("brightness") and not features["brightness"] and value not in (0,255):
+        raise ValueError("Only on/off brightness supported")
+    current=query(c,b,a,inst,readback)
+    if current is None:raise ValueError("Feedback parameter not readable")
+    if current!=value:
+        feature,addr=address(c,a,inst)
+        c._dali2_dtr0(b,value)
+        c._s2tn(b,op,feature,addr)
+    actual=query(c,b,a,inst,readback)
+    if actual!=value:raise RuntimeError("Feedback parameter readback mismatch; write may have occurred")
+    return dict(parameter=parameter,requested=value,readback=actual,changed=current!=value,persistent_writes=current!=value)
+
+def steady(c,b,a,inst):
+    visible(c,b,a,inst)
+    timing=query(c,b,a,inst,QUERY_TIMING)
+    if timing is None or timing&0xC7!=0xC7:
+        raise ValueError("Set feedback timing to steady (255) before automatic or MQTT control")

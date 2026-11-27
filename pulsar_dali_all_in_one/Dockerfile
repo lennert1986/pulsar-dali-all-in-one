@@ -10,6 +10,7 @@ COPY app/hardware_profile.py /app/hardware_profile.py
 COPY app/test_lab.py /app/test_lab.py
 COPY app/advanced.py /app/advanced.py
 COPY app/feedback.py /app/feedback.py
+COPY app/button_bindings.py /app/button_bindings.py
 COPY app/ui_layout.py /app/ui_layout.py
 COPY app/maintenance.py /app/maintenance.py
 COPY app/dashboards.py /app/dashboards.py

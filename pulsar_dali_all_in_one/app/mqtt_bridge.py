@@ -171,7 +171,7 @@ class Bridge:
         return True
     def targets(self):
         d={}
-        if self.settings.local_dali_enabled and self.o.get("mqtt_publish_local",True): d["local"]=("Local Pulsar",None)
+        if (self.settings.local_dali_enabled or getattr(self.settings,"hardware_error","")) and self.o.get("mqtt_publish_local",True): d["local"]=("Local Pulsar",None)
         seen={self.ctl.controller_id}
         if self.o.get("mqtt_publish_remote",True):
             for rid,x in sorted(self.registry().items()):
@@ -180,7 +180,9 @@ class Bridge:
                 seen.add(cid); d[rid]=(x.get("name") or "Remote Pulsar",x)
         return d
     def snapshot(self,target):
-        if target[1] is None: return self.ctl.snapshot()
+        if target[1] is None:
+            if getattr(self.settings,"hardware_error",""): raise RuntimeError("Local hardware unavailable")
+            return self.ctl.snapshot()
         x=self.remote_request(target[1],"GET","/api/devices",timeout=5)
         if x.get("controller_id")!=target[1].get("remote_controller_id"): raise RuntimeError("Remote controller identity mismatch")
         return x

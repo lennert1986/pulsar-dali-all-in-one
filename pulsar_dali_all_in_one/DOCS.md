@@ -11,3 +11,15 @@ Run scan in web UI (or MQTT Scan buttons). HA creates lights, switches, groups, 
 MQTT state and availability retained; events and commands not retained. Broker account needs publish/subscribe rights on the configured discovery prefix and pulsar_dali_aio/#. Treat MQTT credentials as control access. No public MQTT listener is created. If replacing the app or changing broker/prefix, clean old discovery topics on the former broker before removing it.
 
 Experimental: test actual DALI hardware and Home Assistant MQTT discovery before production use.
+
+## Vertex G3 / G4 hardware profiles (0.14.0)
+
+- `hardware_model: auto` uses the device-tree model. Existing non-default UART mappings are treated as manual to preserve upgrades.
+- `vertex_g3`: requires one uniquely identifiable FTDI 0403:6011 adapter; maps USB interface numbers 00, 01 and 02 to DALI 1–3, regardless of ttyUSB numbering. I2C bus 0. This FTDI mapping is based on earlier project findings and is not yet verified on a physical G3.
+- `vertex_g4`: maps /dev/ttyAMA3, /dev/ttyAMA4, /dev/ttyAMA5; I2C bus 1.
+- `remote_only`: no local UART or I2C access; master management and MQTT remain active.
+- `manual`: set the existing three dali*_device options and i2c_bus explicitly.
+
+If a profile cannot resolve three distinct present serial devices, local DALI is disabled, with the reason in the startup log and hardware/MQTT status. Select the correct profile or manual ports and restart. No arbitrary USB serial probing or firmware updates are performed. LED polarity can be set via led_active_high (default true for both, based on the original G3 configuration and practical G4 test); GPIO reset/boot pins are untouched. Only DALI LED bits B5/B3/B1 are changed.
+
+G3 requires a working 64-bit Home Assistant OS/Supervised environment with FTDI driver, correct USB/device-tree configuration and optional /dev/i2c-0. Firmware 1.x advanced DALI-2/commissioning compatibility is not verified; test basic GVER and light control first, with auto_scan disabled. The app does not install or modify HAOS. MQTT and TLS remote management remain unchanged. No full_access or protection-mode changes are required by the manifest.

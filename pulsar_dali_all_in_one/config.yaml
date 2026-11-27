@@ -1,5 +1,5 @@
 name: "Pulsar DALI All-in-One"
-version: "0.13.0"
+version: "0.14.0"
 slug: "pulsar_dali_all_in_one"
 description: >-
   Native Glamox/ES-SYSTEM Pulsar DALI gateway with control gear, groups, scenes,
@@ -13,7 +13,9 @@ init: false
 stage: experimental
 uart: true
 udev: true
+devicetree: true
 devices:
+  - /dev/i2c-0
   - /dev/i2c-1
 ingress: true
 ingress_port: 8099
@@ -28,6 +30,8 @@ ports_description:
 services:
   - mqtt:want
 options:
+  hardware_model: auto
+  led_active_high: true
   local_dali_enabled: true
   mqtt_enabled: true
   mqtt_auto_discovery: true
@@ -52,6 +56,8 @@ options:
   poll_interval: 30
   remote_api_enabled: false
 schema:
+  hardware_model: "list(auto|vertex_g3|vertex_g4|remote_only|manual)"
+  led_active_high: bool
   local_dali_enabled: bool
   mqtt_enabled: bool
   mqtt_auto_discovery: bool

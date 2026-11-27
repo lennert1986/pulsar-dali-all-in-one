@@ -18,3 +18,4 @@ jobs:
           python3 build_source.py app/pulsar_dali_control.py
           python3 -m py_compile app/*.py
           python3 app/test_bridge.py
+          python3 app/test_hardware_profile.py

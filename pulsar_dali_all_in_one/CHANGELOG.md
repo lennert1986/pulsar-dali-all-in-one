@@ -1,3 +1,7 @@
+# 0.20.0
+- Combined installation snapshot export from Maintenance.
+- Existing remote identity checks retained.
+
 # 0.19.0
 - Named push-button event filter bits (Part 301).
 - Existing advanced functionality retained. XY, feedback and HA identity migration pending verification.

@@ -61,3 +61,7 @@ DT8 configuration includes RGB colour picker and Kelvin slider, without sending 
 ## 0.19.0
 
 Part 301 push-button event filter labels for bits 0–8. Other instance bits remain raw. XY, feedback and identity migration are not enabled. Existing emergency command log retains its bounded rotation; general application logs remain managed by Home Assistant.
+
+## 0.20.0
+
+Maintenance exports a combined JSON snapshot of registered controllers, with selected configuration fields and per-controller errors. This is a snapshot export, not a full restorable backup. Discovery, XY control and clock synchronization remain pending.

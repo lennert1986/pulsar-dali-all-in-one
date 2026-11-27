@@ -48,7 +48,7 @@ def local_info(c):
 PAGE=r'''<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pulsar DALI</title>
 <style>.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px;margin:12px 0}.dash-stat{border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--card);min-width:0}.dash-stat small{display:block;color:var(--muted)}.dash-stat strong{font-size:23px;display:block;margin:4px 0;font-variant-numeric:tabular-nums}.dash-meter{height:8px;background:var(--border);border-radius:6px;overflow:hidden}.dash-meter span{display:block;height:100%;background:var(--accent)}.dash-table{overflow:auto}.dash-table table{min-width:620px}.dash-table td:first-child{font-weight:550}.dash-note{font-size:13px;color:var(--muted)}.dash-actions{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.dash-actions label{flex:1;min-width:180px}.dash-actions label span{display:block;font-size:13px;margin-bottom:6px}</style></head>
 <body><main><h1>Administration</h1><p>Administration</p><nav></nav>
-<section><div class="dash-actions"><label><span>Controller</span><select id="target"></select></label><button id="refresh">Opdater</button><button id="download" disabled>Eksportér JSON</button></div><p id="status" role="status" class="pulsar-state">Indlæser…</p></section>
+<section><div class="dash-actions"><label><span>Controller</span><select id="target"></select></label><button id="refresh">Opdater</button><button id="download" disabled>Eksportér JSON</button><button id="installation" hidden>Eksportér installation</button></div><p id="status" role="status" class="pulsar-state">Indlæser…</p></section>
 <div id="summary" class="dash-grid"></div><div id="content"></div></main>
 <script>
 "use strict";
@@ -75,7 +75,7 @@ function renderEmergency(s,info){const gs=(s.gear||[]).filter(g=>g.device_type==
  const p=section("Nødbelysning","Status er senest aflæste rådata; batteriprocent er et estimat. Manuelle tests udføres kun på isoleret testbus fra Konfiguration.");table(p,["Armatur","Bus","Batteri (%)","Mode (rå)","Fejl (rå)","Status (rå)"],gs.map(g=>[link(g),g.bus,fmt(g.battery_percent),g.emergency_mode,g.emergency_failure,g.emergency_status]));if(!gs.length)p.append(el("p","Ingen DT1-enheder registreret.","dash-note"));
  const h=section("Kommandohistorik","En afsendt testkommando er ikke et bestået resultat. Historikken erstatter ikke certificeret vedligehold.");if(!info)h.append(el("p","Historik er kun tilgængelig lokalt.","dash-note"));else table(h,["Tid","Bus","Adresse","Kommando","Registreret resultat"],(info.history||[]).slice().reverse().map(x=>[dt(x.utc),x.bus,x.address,x.test,"Kommando sendt – ikke verificeret testresultat"]));
 }
-function renderMaintenance(s,info,backups){const gear=s.gear||[];stat("Armaturer",gear.length);stat("Offline / konflikt",gear.filter(g=>!g.online||g.address_conflict).length);stat("Backups",backups?backups.length:"—");
+function renderMaintenance(s,info,backups){$("installation").hidden=false;const gear=s.gear||[];stat("Armaturer",gear.length);stat("Offline / konflikt",gear.filter(g=>!g.online||g.address_conflict).length);stat("Backups",backups?backups.length:"—");
  const res=section("Systemressourcer","Ressourcer som Linux-containeren kan se; ikke en komplet måling af HAOS-værten.");if(info){const r=info.resources||{};table(res,["Ressource","Værdi"],[["Disk /data",r.data_disk?bytes(r.data_disk.used)+" / "+bytes(r.data_disk.total):"—"],["Synlig RAM tilgængelig",r.visible_memory?bytes(r.visible_memory.available)+" / "+bytes(r.visible_memory.total):"—"],["Load average (1/5/15 min)",(r.load_average||[]).map(x=>fmt(x,2)).join(" / ")||"—"]]);}else res.append(el("p","Lokale ressourcer er ikke tilgængelige for denne controller.","dash-note"));
  const comm=section("STM32-transaktioner","Tællere siden app-start. Svartid er UART/API-transaktionstid, ikke fysisk DALI-busbelastning. Exceptions er ikke alle DALI no-reply.");table(comm,["Bus","Transaktioner","Exceptions","Middel (ms)","Maks. (ms)"],Object.entries(info?.transactions||{}).map(([b,v])=>[b,v.transactions,v.exceptions,fmt(v.mean_ms),fmt(v.max_ms)]));
  const b=section("Konfigurationsbackups","Backup indeholder controllerens kendte konfiguration. Gendannelse udføres pr. enhed i Konfiguration.");table(b,["Fil","Årsag","Tid"],(backups||[]).map(x=>[x.filename,x.reason,x.created_utc||x.created_at||"—"]));const a=el("a","Åbn Commissioning");a.href="commissioning";b.append(a);
@@ -89,6 +89,25 @@ async function load(){if(busy)return;busy=true;$("target").disabled=true;$("refr
  if(page==="energy")renderEnergy(s);else if(page==="emergency")renderEmergency(s,info);else renderMaintenance(s,info,backups);
  last={controller_id:expected,page,gear:s.gear||[],info,backups};$("download").disabled=false;$("status").textContent="Opdateret "+new Date().toLocaleTimeString("da-DK")+" · "+c.name;
  }catch(e){$("status").textContent=e.message;}finally{busy=false;$("target").disabled=false;$("refresh").disabled=false;}}
+$("installation").onclick=async()=>{
+ if(busy)return;busy=true;$("target").disabled=true;$("refresh").disabled=true;$("installation").disabled=true;$("download").disabled=true;
+ const results=[];
+ try{
+ for(const c of controllers){
+  const expected=c.remote_controller_id||c.controller_id;
+  $("status").textContent="Henter "+c.name+"…";
+  try{
+   const data=c.id==="local"?await req("api/devices"):await req("api/lab/remote",{registry_id:c.id,controller_id:expected,operation:"snapshot"});
+   if(data.controller_id!==expected)throw Error("Controller-ID ændret");
+   const snapshot={};for(const k of ["controller_id","gear","groups","scenes","control_devices","input_instances","buses","generation","hardware_profile"])if(k in data)snapshot[k]=data[k];
+   results.push({name:c.name,controller_id:expected,snapshot});
+  }catch(e){results.push({name:c.name,controller_id:expected,error:e.message});}
+ }
+ const obj={schema:"pulsar-installation-v1",exported_at:new Date().toISOString(),complete:results.every(x=>!x.error),controllers:results};
+ const url=URL.createObjectURL(new Blob([JSON.stringify(obj,null,2)],{type:"application/json"})),a=el("a");a.href=url;a.download="pulsar-installation.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ $("status").textContent="Eksport afsluttet · "+results.filter(x=>!x.error).length+" / "+results.length+" controllere";
+ }finally{busy=false;$("target").disabled=false;$("refresh").disabled=false;$("installation").disabled=false;$("download").disabled=!last;}
+};
 $("target").onchange=()=>{localStorage.setItem("pulsar_active_controller",$("target").value);load();};$("refresh").onclick=load;
 $("download").onclick=()=>{if(!last)return;const u=URL.createObjectURL(new Blob([JSON.stringify(last,null,2)],{type:"application/json"})),a=el("a");a.href=u;a.download="pulsar-"+page+".json";a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);};
 (async()=>{try{const x=await req("api/controllers");controllers=[x.local,...(x.controllers||[])].filter(Boolean);for(const c of controllers)$("target").append(new Option(c.name||c.id,c.id));const saved=localStorage.getItem("pulsar_active_controller");if(controllers.some(c=>c.id===saved))$("target").value=saved;await load();}catch(e){$("status").textContent=e.message;}})();

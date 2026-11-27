@@ -8,7 +8,7 @@ def change(old,new):
     global s
     if old not in s: raise RuntimeError("Missing patch anchor: "+repr(old))
     s=s.replace(old,new,1)
-s=s.replace("0.12.0","0.19.0").replace("Pulsar DALI Control 0.19.0","Pulsar DALI All-in-One 0.19.0")
+s=s.replace("0.12.0","0.20.0").replace("Pulsar DALI Control 0.20.0","Pulsar DALI All-in-One 0.20.0")
 change('    remote_api_enabled: bool = False','    remote_api_enabled: bool = False\n    local_dali_enabled: bool = True')
 change('        led_enabled=bool(data.get("led_enabled", True)),','        led_enabled=bool(data.get("led_enabled", True)) and bool(data.get("local_dali_enabled", True)),')
 change('        remote_api_enabled=bool(data.get("remote_api_enabled", False)),','        remote_api_enabled=bool(data.get("remote_api_enabled", False)),\n        local_dali_enabled=bool(data.get("local_dali_enabled", True)),')

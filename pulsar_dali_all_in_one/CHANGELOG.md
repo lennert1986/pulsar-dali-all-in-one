@@ -1,3 +1,10 @@
+# 0.21.3 – DALI-2 feedback groundwork
+
+- Correct IEC 62386-332 feedback query opcodes (0x4F through 0x49), feature addressing on instance-number level (0x20 | instance), and single-frame ACTIVATE/STOP (0x10/0x11).
+- Scan push-button/generic instances for feedback capabilities; unknown and query errors remain distinct from reported absence. Test Lab input mode includes optional feedback queries.
+- Configuration offers read-only feedback details and explicitly confirmed manual active/stop testing on an isolated bus. Only visible-only features may be activated; no automatic LED writes, persistent configuration changes or audible feedback commands.
+- A silent active query is not verified OFF. Active mode is not proof of actual LED illumination. Physical validation, brightness/colour writes, local bindings, automatic status follow and MQTT feedback control remain pending.
+
 # 0.21.2 – exclusive controller roles
 
 - Master and subordinate roles are mutually exclusive. Registered children or pending outgoing pairing reserve the master role; incoming pairing/approval and remote authorization are blocked. A subordinate cannot add remote controllers or send remote API commands.

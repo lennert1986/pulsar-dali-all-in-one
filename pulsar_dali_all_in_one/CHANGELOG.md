@@ -1,3 +1,9 @@
+# 0.16.1
+- Common responsive layout across all seven pages, stable navigation and active page indicator.
+- Dedicated configuration page, typed fields, backup selection and readable results.
+- Remember selected controller and reload legacy views when switching.
+- Test Lab remains read-only. No new DALI protocol commands.
+
 # 0.16.0 experimental
 - Advanced web configuration: fade, curve, DT8, memory/identity, sampled D4i, input commissioning, restore and manual DT1 tests.
 - MQTT additional properties and sampled diagnostics; existing IDs and brightness modes retained.

@@ -1,3 +1,8 @@
+# 0.17.2
+- Direct editable settings with per-field save and readback.
+- Compact advanced option groups and hidden empty result section.
+- Separate configuration wording from diagnostic tests.
+
 # 0.17.1
 - Device-first configuration with grouped gear and sensor selection, current device facts and capability-filtered actions.
 - Basic level settings with identity checks and readback.

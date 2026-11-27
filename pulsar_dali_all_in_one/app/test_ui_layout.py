@@ -66,3 +66,8 @@ assert(!availableActions({kind:"gear",device_type:255,device_types:[1,6]}).inclu
 assert.deepEqual(availableActions(undefined),[]);
 """
 subprocess.run(["node","-e",logic+checks],check=True)
+
+assert 'id="directSettings"' in pages["configuration"]
+assert '<section id="resultSection" hidden>' in pages["configuration"]
+assert 'Ingen test kørt.</p>' not in pages["configuration"]
+assert 'function saveDirect(' in pages["configuration"]

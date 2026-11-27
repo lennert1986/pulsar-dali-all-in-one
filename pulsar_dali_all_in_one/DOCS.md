@@ -45,3 +45,7 @@ Includes 0.16.1 shared layout and separate configuration forms. Auto identificat
 ## 0.17.1 device-first configuration
 
 Select controller, bus and gear/input instance before choosing settings. Device overview displays cached reported values; relevant action groups depend on device type and reported colour capabilities. Offline/conflicted devices cannot execute configuration. Basic level parameters are configurable with readback via the existing advanced identity checks. After each action the selected device is refreshed. DALI-2 commissioning is a separate bus tool, only with no device selected and explicit isolated bus confirmation. Test Lab remains separate. No new DALI telegram opcodes.
+
+## 0.17.2
+
+Configuration shows name, basic levels, fade and supported dimming curve directly, with per-field Save. Writes use the existing identity-checked advanced API and confirmation; no new DALI commands. Action details are hidden until a command has run. Test Lab retains its diagnostic labels.

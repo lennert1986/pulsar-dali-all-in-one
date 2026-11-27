@@ -1,3 +1,11 @@
+# 0.21.0 – controller pairing (experimental)
+
+- LAN discovery now offers Add controller and advertises a name/version.
+- Five-minute receiver pairing window; compare the entire certificate-bound 16-hex-character code on both controllers, approve on receiver, confirm on initiator.
+- Unique bearer credential per pairing, revocation from the receiver; no token in browser. Existing manual HTTPS registration remains available under Advanced.
+- Both controllers need this version for pairing. Enable discovery on both and remote HTTPS on receiver. Pairing grants the existing full remote API permissions. Pairing administration is restricted to HA ingress (172.30.32.2) or loopback. Keep the local API unexposed.
+- Automatic address migration, scoped grants, mutual pairing and bulk pairing are not included.
+
 # 0.20.3
 - Experimental DT8 CIE XY commands, readback, configuration and MQTT JSON light integration.
 - Existing light unique ID retained.

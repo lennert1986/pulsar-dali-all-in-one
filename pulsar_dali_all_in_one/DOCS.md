@@ -77,3 +77,8 @@ Set `clock_reference_controller_id` to the actual ID of a registered, pinned HTT
 ## 0.20.3 experimental DT8 XY
 
 Enable `dt8_mqtt_enabled`. Inspect compatible DT8 gear; XY discovery requires an actual valid XY reading and reported support. Uses existing unique ID and JSON light schema. Coordinates are fractions in 1/65536 units, with readback via query colour value. Unsupported coordinates or gamut clipping are reported as mismatches. Only active colour mode is advertised. Physical DT8 verification pending.
+
+
+## Controller pairing (0.21.0)
+
+On both controllers enable `controller_discovery_enabled`; on the receiver enable `remote_api_enabled` and restart. On the receiver open Controllers → Tillad parring. On the initiating controller click Tilføj controller, give it a name, compare the **entire** code on both screens, approve on the receiver, then click Koden matcher – tilføj on the initiator. Never approve a differing code. A pending session expires after five minutes. The resulting bearer token is stored in the initiating registry and only its hash on the receiving controller. Revoke the grant on the receiver; removing a controller from the initiating list does not revoke remote permission. Existing manual credentials and their rotation are independent. Pairing is experimental and grants the existing full remote API permissions. Keep local port 8099 unexposed; use authenticated HA ingress. The discovered hostname and version are unverified hints. The UI intentionally uses a longer code than a six-digit PIN to resist guessing or manipulation. If the receiver's certificate changes, verify and re-pair manually.

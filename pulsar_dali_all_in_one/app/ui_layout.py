@@ -36,7 +36,7 @@ body .banner{position:fixed;z-index:1100;bottom:18px;right:24px;max-width:min(48
 @media(max-width:1050px){nav.pulsar-nav{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:600px){body .wrap,body main{padding:14px 12px 24px}.pulsar-brand{min-height:40px}.pulsar-name{font-size:15px}.pulsar-logo{width:34px;height:34px}.pulsar-heading{margin-bottom:14px}nav.pulsar-nav{grid-template-columns:repeat(3,minmax(0,1fr))}nav.pulsar-nav a{min-height:38px;font-size:12px}.card,main>section{padding:13px;margin-bottom:12px}.fields,.form,.form-grid{grid-template-columns:minmax(0,1fr)}.actions{align-items:stretch}.actions button{flex:1 1 auto}body .banner{bottom:12px;right:12px;max-width:calc(100% - 24px)}}
 """
-def apply(page,key,version="0.20.3"):
+def apply(page,key,version="0.21.0"):
     info=next(x for x in PAGES if x[0]==key)
     nav='<nav class="pulsar-nav" aria-label="Hovedmenu">'+''.join(
         '<a href="'+url+'"'+(' aria-current="page"' if k==key else '')+'>'+label+'</a>'
@@ -65,16 +65,6 @@ def apply(page,key,version="0.20.3"):
         page=page.replace("onclick=\"openGearModal(\x24{x.bus},\x24{x.address})\">Rediger</button>",
             "onclick=\"openGearModal(\x24{x.bus},\x24{x.address})\">Rediger</button> <a class=\"pulsar-config-link\" href=\"configuration?bus=\x24{x.bus}&amp;address=\x24{x.address}\">Avanceret</a>")
     if key=="controllers":
-        panel=r'''<section class="card"><h2>Automatisk discovery</h2><p>Fundne controllere på lokalnettet. Oplysninger er ikke verificeret; tilføj dem med eksisterende HTTPS-godkendelse.</p><p id="discoveryStatus" role="status">Indlæser…</p><div id="discoveryList"></div></section>
-<script>
-(()=>{let busy=false;const status=document.getElementById("discoveryStatus"),list=document.getElementById("discoveryList");
-async function refresh(){if(busy)return;busy=true;try{
- const r=await fetch("api/discovery",{cache:"no-store"}),j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||"HTTP "+r.status);
- status.textContent=j.error?"Discovery-fejl: "+j.error:!j.enabled?"Aktiver controller_discovery_enabled i add-on-indstillingerne.":(j.candidates||[]).length+" fundne controllere · "+(j.advertising?"Annoncerer lokal controller":"Kun søgning");
- list.replaceChildren();for(const c of j.candidates||[]){const row=document.createElement("div");row.style.cssText="padding:12px 0;border-top:1px solid var(--border)";const title=document.createElement("strong");title.textContent=c.host+":"+c.port;const detail=document.createElement("p");detail.textContent="ID: "+c.controller_id+" · Uverificeret · set for "+c.age_seconds+" s siden";const copy=document.createElement("button");copy.type="button";copy.textContent="Kopiér IP";copy.onclick=async()=>{try{await navigator.clipboard.writeText(c.host);copy.textContent="Kopieret";}catch(e){status.textContent="Kopiér IP manuelt: "+c.host;}};row.append(title,detail,copy);list.append(row);}
- }catch(e){status.textContent="Discovery utilgængelig: "+e.message;list.replaceChildren();}finally{busy=false;}}
-refresh();setInterval(refresh,5000);
-})();
-</script>'''
-        page=page.replace("</body>",panel+"</body>",1)
+        import pairing_ui
+        page=pairing_ui.install(page)
     return page

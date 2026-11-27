@@ -16,11 +16,16 @@ def parse(raw,host,own):
         uid=d.get("controller_id")
         if not isinstance(uid,str) or not 1<=len(uid)<=128 or uid==own or not all(c.isalnum() or c in "-_." for c in uid):return None
         if d.get("port")!=8443:return None
-        return {"controller_id":uid,"host":str(addr),"port":8443,"verified":False}
+        name=d.get("name","")
+        version=d.get("version","")
+        return {"controller_id":uid,"host":str(addr),"port":8443,"verified":False,
+                "name":name[:80] if isinstance(name,str) else "",
+                "version":version[:32] if isinstance(version,str) else ""}
     except (ValueError,TypeError,UnicodeError):return None
 class Discovery:
     def __init__(self,controller,settings,log):
         self.uid=str(controller.controller_id);self.log=log
+        self.name=socket.gethostname()
         try:o=json.loads(Path("/data/options.json").read_text())
         except (OSError,ValueError):o={}
         self.enabled=bool(o.get("controller_discovery_enabled",False))
@@ -55,7 +60,7 @@ class Discovery:
                     s.setsockopt(socket.IPPROTO_IP,socket.IP_ADD_MEMBERSHIP,socket.inet_aton(GROUP)+socket.inet_aton("0.0.0.0"))
                     s.setsockopt(socket.IPPROTO_IP,socket.IP_MULTICAST_TTL,1)
                     s.settimeout(0.5);self.error="";next_send=0
-                    payload=json.dumps({"protocol":MAGIC,"controller_id":self.uid,"port":8443}).encode()
+                    payload=json.dumps({"protocol":MAGIC,"controller_id":self.uid,"port":8443,"name":self.name,"version":"0.21.0"}).encode()
                     while not self.stop_event.is_set():
                         now=time.monotonic()
                         if self.advertise and now>=next_send:

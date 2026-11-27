@@ -116,3 +116,7 @@ except ValueError:pass
 else:raise AssertionError("Slow sample accepted")
 
 assert 'CIE XY' in pages["configuration"]
+
+assert 'id="pairRole"' in pages["controllers"]
+assert 'id="pairManual"' in pages["controllers"]
+assert "remoteBlocked" in pages["controllers"]

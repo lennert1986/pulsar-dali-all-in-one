@@ -35,6 +35,10 @@ def intfield(value,low,high,name):
 
 def run(c,d):
     if not isinstance(d,dict): raise ValueError("Invalid request")
+    if d.get("mode")=="automation":
+        engine=getattr(c,"automation_engine",None)
+        if engine is None:raise ValueError("Automation engine not initialized")
+        return {"ok":True,"controller_id":c.controller_id,**engine.action(d)}
     if d.get("mode")=="advanced":
         import advanced
         result=advanced.execute(c,d)

@@ -33,4 +33,13 @@ class Tests(unittest.TestCase):
         self.assertFalse(entries())
         s["input_instances"][0].pop("local_binding");s["feedback_mqtt_enabled"]=False
         self.assertFalse(entries())
+    def test_automation_mqtt(self):
+        s=dict(controller_id="test",automation_enabled=True,automation_rules=[dict(id="zone",name="Room",bus=1,enabled=True,runtime={"status":"occupied","override_remaining":0})])
+        entries=catalog(s,"Test","homeassistant","av")
+        route=next(e["route"] for e in entries.values() if (e.get("route") or {}).get("kind")=="automation_enable")
+        path,d,_=request(route,"switch","OFF")
+        self.assertEqual(path,"/api/lab/run");self.assertFalse(d["enabled"])
+        self.assertEqual(d["controller_id"],"test")
+        route=next(e["route"] for e in entries.values() if (e.get("route") or {}).get("seconds")==1800)
+        self.assertEqual(request(route,"button","PRESS")[1]["seconds"],1800)
 if __name__=="__main__": unittest.main()

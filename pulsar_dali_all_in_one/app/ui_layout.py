@@ -4,6 +4,7 @@ from html import escape
 PAGES=(
     ("overview","./","Oversigt","Busser, armaturer, grupper og scener"),
     ("configuration","configuration","Konfiguration","Indstil armaturer, sensorer og avancerede funktioner"),
+    ("automation","automation","Automatik","Lokal bevægelse, dagslys, tidsprogram og overstyring"),
     ("energy","energy","Energi","D4i-målinger og dækningsgrad"),
     ("emergency","emergency","Nødbelysning","Registreret nødlysstatus og kommandohistorik"),
     ("maintenance","maintenance","Vedligeholdelse","Backup, ressourcer og kommunikation"),
@@ -36,7 +37,7 @@ body .banner{position:fixed;z-index:1100;bottom:18px;right:24px;max-width:min(48
 @media(max-width:1050px){nav.pulsar-nav{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:600px){body .wrap,body main{padding:14px 12px 24px}.pulsar-brand{min-height:40px}.pulsar-name{font-size:15px}.pulsar-logo{width:34px;height:34px}.pulsar-heading{margin-bottom:14px}nav.pulsar-nav{grid-template-columns:repeat(3,minmax(0,1fr))}nav.pulsar-nav a{min-height:38px;font-size:12px}.card,main>section{padding:13px;margin-bottom:12px}.fields,.form,.form-grid{grid-template-columns:minmax(0,1fr)}.actions{align-items:stretch}.actions button{flex:1 1 auto}body .banner{bottom:12px;right:12px;max-width:calc(100% - 24px)}}
 """
-def apply(page,key,version="0.21.4"):
+def apply(page,key,version="0.22.0"):
     info=next(x for x in PAGES if x[0]==key)
     nav='<nav class="pulsar-nav" aria-label="Hovedmenu">'+''.join(
         '<a href="'+url+'"'+(' aria-current="page"' if k==key else '')+'>'+label+'</a>'
@@ -46,7 +47,7 @@ def apply(page,key,version="0.21.4"):
            '<div class="pulsar-edition">All-in-One · Vertex G3 / G4</div></div></div>'
            '<span class="pulsar-version">v'+escape(version)+'</span></div>'+nav+'</div>'
            '<header class="pulsar-heading"><h1>'+info[2]+'</h1><p>'+info[3]+'</p></header>')
-    if key in ("testlab","configuration","energy","emergency","maintenance"):
+    if key in ("testlab","configuration","automation","energy","emergency","maintenance"):
         page,n=re.subn(r'<h1>.*?</h1><p[^>]*>.*?</p>\s*<nav[^>]*>.*?</nav>',shell,page,count=1,flags=re.S)
     else:
         page,n=re.subn(r'<div class="header">.*?</nav>\s*</div>',shell,page,count=1,flags=re.S)

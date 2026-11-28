@@ -8,7 +8,7 @@ def change(old,new):
     global s
     if old not in s: raise RuntimeError("Missing patch anchor: "+repr(old))
     s=s.replace(old,new,1)
-s=s.replace("0.12.0","0.21.4").replace("Pulsar DALI Control 0.21.4","Pulsar DALI All-in-One 0.21.4")
+s=s.replace("0.12.0","0.22.0").replace("Pulsar DALI Control 0.22.0","Pulsar DALI All-in-One 0.22.0")
 change('    remote_api_enabled: bool = False','    remote_api_enabled: bool = False\n    local_dali_enabled: bool = True')
 change('        led_enabled=bool(data.get("led_enabled", True)),','        led_enabled=bool(data.get("led_enabled", True)) and bool(data.get("local_dali_enabled", True)),')
 change('        remote_api_enabled=bool(data.get("remote_api_enabled", False)),','        remote_api_enabled=bool(data.get("remote_api_enabled", False)),\n        local_dali_enabled=bool(data.get("local_dali_enabled", True)),')
@@ -121,6 +121,24 @@ change('Discovery(controller,settings,log)', 'Discovery(controller,settings,log,
 
 change('    maintenance_worker.start()\n    from discovery import Discovery','    maintenance_worker.start()\n    from button_bindings import Worker as ButtonWorker\n    button_worker=ButtonWorker(controller,log)\n    button_worker.start()\n    from discovery import Discovery')
 change('        maintenance_worker.stop()\n        bridge.stop()','        button_worker.stop()\n        maintenance_worker.stop()\n        bridge.stop()')
+
+
+change('advanced.install(PulsarDali)\n\nclass Handler', 'advanced.install(PulsarDali)\nimport local_automation\nimport automation_ui\nlocal_automation.install(PulsarDali)\n\nclass Handler')
+change('    bridge.start()\n    from maintenance import Worker','    controller.automation_engine=local_automation.Engine(controller,log)\n    controller.automation_engine.start()\n    bridge.start()\n    from maintenance import Worker')
+change('        button_worker.stop()\n        maintenance_worker.stop()', '        controller.automation_engine.stop()\n        button_worker.stop()\n        maintenance_worker.stop()')
+change('        if path.endswith(("/testlab", "/configuration")):', '''        if path.endswith("/automation"):
+            if getattr(self.server,"is_remote",False):
+                self._json({"ok":False,"error":"not found"},404)
+                return
+            body=automation_ui.page().encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type","text/html; charset=utf-8")
+            self.send_header("Cache-Control","no-store")
+            self.send_header("Content-Length",str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if path.endswith(("/testlab", "/configuration")):''')
 
 compile(s,"pulsar_dali_control.py","exec")
 out=pathlib.Path(sys.argv[1])

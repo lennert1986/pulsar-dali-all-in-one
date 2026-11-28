@@ -1,3 +1,10 @@
+# 0.22.0 – Local zone automation (experimental)
+
+- Optional independent local worker for occupancy/hold, relative daylight regulation, weekly schedule and night level.
+- Persistent zone editor, same-controller gear/group target verification and overlap rejection.
+- Manual command pause, MQTT enable/disable, timed pause/resume and status; remote management via existing pinned lab API.
+- Sensor fallback, live readings, timezone handling, no persistent DALI writes by worker. Physical validation pending.
+
 # 0.21.4 – feedback settings, local button bindings and MQTT
 
 - Configure active/inactive LED brightness (0–255), RGB colour code (1–63) and feedback timing with DTR0, send-twice and exact readback. Explicit isolated test confirmation; only visible-only feedback, no redundant NVM writes.

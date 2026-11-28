@@ -36,13 +36,14 @@ def density(raw):
     return bits//8 if bits>=8 and bits%8==0 else None
 
 class Spi:
-    def __init__(self):
-        if not stat.S_ISCHR(os.stat(DEVICE).st_mode):raise OSError("Not a character device")
-        self.fd=os.open(DEVICE,os.O_RDWR|os.O_CLOEXEC|os.O_NOFOLLOW)
+    def __init__(self, device=DEVICE, speed=SPEED):
+        self.speed=speed
+        if not stat.S_ISCHR(os.stat(device).st_mode):raise OSError("Not a character device")
+        self.fd=os.open(device,os.O_RDWR|os.O_CLOEXEC|os.O_NOFOLLOW)
         self.old={}
         try:
             # Save and restore volatile Linux SPI settings, not chip registers.
-            for nr,fmt,value in ((1,"B",0),(3,"B",8),(4,"I",SPEED)):
+            for nr,fmt,value in ((1,"B",0),(3,"B",8),(4,"I",speed)):
                 size=struct.calcsize(fmt);read=0x80000000|(size<<16)|(ord("k")<<8)|nr
                 write=0x40000000|(size<<16)|(ord("k")<<8)|nr
                 buf=bytearray(size);fcntl.ioctl(self.fd,read,buf,True)
@@ -60,7 +61,7 @@ class Spi:
         # Linux struct spi_ioc_transfer has fixed 32-byte layout on both supported architectures.
         n=len(tx)
         src=ctypes.create_string_buffer(bytes(tx),n);dst=ctypes.create_string_buffer(n)
-        desc=struct.pack("=QQIIHBBBBBB",ctypes.addressof(src),ctypes.addressof(dst),n,SPEED,0,8,0,0,0,0,0)
+        desc=struct.pack("=QQIIHBBBBBB",ctypes.addressof(src),ctypes.addressof(dst),n,self.speed,0,8,0,0,0,0,0)
         fcntl.ioctl(self.fd,0x40206b00,desc)
         return dst.raw
     def id(self):return self._transfer(b"\x9f\0\0\0")[1:]

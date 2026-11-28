@@ -1,3 +1,10 @@
+## 0.24.0
+
+- Opt-in KSZ8795 Ethernet switch identification and four PHY port status readings.
+- Host network interface counters, watchdog status, RTC offset and bootloader metadata when exposed.
+- No hardware watchdog takeover, SPI memory payload access or automatic network configuration changes.
+- Port mapping, optional EEE modification, switch MIB counters and automatic recovery remain unverified/deferred.
+
 # 0.23.1 – Optional active SPI identification
 
 - Vertex G4 SPI1/CS1 JEDEC ID and bounded SFDP density probe, disabled by default; no flash array contents or secret material collected.

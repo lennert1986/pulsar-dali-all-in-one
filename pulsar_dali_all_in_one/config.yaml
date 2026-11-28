@@ -1,5 +1,5 @@
 name: "Pulsar DALI All-in-One"
-version: "0.23.1"
+version: "0.24.0"
 slug: "pulsar_dali_all_in_one"
 description: >-
   Native Glamox/ES-SYSTEM Pulsar DALI gateway with control gear, groups, scenes,
@@ -18,6 +18,7 @@ devices:
   - /dev/i2c-0
   - /dev/i2c-1
   - /dev/spidev1.1
+  - /dev/spidev1.0
 host_network: true
 ingress: true
 ingress_port: 8099
@@ -62,6 +63,7 @@ options:
   local_button_bindings_enabled: false
   local_automation_enabled: false
   spi_identification_enabled: false
+  ethernet_diagnostics_enabled: false
   feedback_mqtt_enabled: false
   auto_scan: false
   poll_interval: 30
@@ -101,6 +103,7 @@ schema:
   local_button_bindings_enabled: bool
   local_automation_enabled: bool
   spi_identification_enabled: bool
+  ethernet_diagnostics_enabled: bool
   feedback_mqtt_enabled: bool
   auto_scan: bool
   poll_interval: "int(5,600)"

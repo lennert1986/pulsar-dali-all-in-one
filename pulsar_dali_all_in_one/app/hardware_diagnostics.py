@@ -6,6 +6,7 @@ import os,re,stat,subprocess,time,threading,shutil
 from pathlib import Path
 import dashboards
 import spi_identity
+import vertex_hardware
 import hardware_profile
 import json
 
@@ -161,6 +162,7 @@ class Monitor:
         except (OSError,ValueError):opts={}
         self.spi_probe=opts.get('spi_identification_enabled') is True and getattr(c.settings,'local_dali_enabled',False) and ('compute module 4' in hardware_profile.board_model().lower() or getattr(c.settings,'hardware_profile',None)=='vertex_g4')
         self.spi_result=None
+        self.eth_probe=opts.get('ethernet_diagnostics_enabled') is True and getattr(c.settings,'local_dali_enabled',False) and ('compute module 4' in hardware_profile.board_model().lower() or getattr(c.settings,'hardware_profile',None)=='vertex_g4')
     def start(self):
         self.thread=threading.Thread(target=self.run,daemon=True,name="hardware-monitor");self.thread.start()
     def stop(self):
@@ -173,7 +175,7 @@ class Monitor:
             usage=max(0,min(100,round(100*(1-(sample[1]-self.cpu[1])/(sample[0]-self.cpu[0])),1)))
         self.cpu=sample
         if now>=self.slow_at:
-            self.slow=dict(identity=identity(),spi=spi(),storage=partitions(),emmc=emmc(),rtc=rtc())
+            self.slow=dict(identity=identity(),spi=spi(),storage=partitions(),emmc=emmc(),rtc=vertex_hardware.rtc_offset(rtc()),bootloader=vertex_hardware.bootloader(read))
             if self.spi_probe:
                 if self.spi_result is None:self.spi_result=spi_identity.identify()
                 self.slow['spi']['identification']=self.spi_result
@@ -198,6 +200,7 @@ class Monitor:
                              hardware_profile=getattr(c.settings,"hardware_model",None),
                              hardware_error=getattr(c.settings,"hardware_error",None),
                              resources=resources,thermal=thermal(),buses=buses,transactions=stats,
+                             watchdog=vertex_hardware.watchdog(read,number,entries),network=vertex_hardware.network(number,entries),ethernet=vertex_hardware.switch() if self.eth_probe else {'status':'disabled'},
                              history=list(self.history),**self.slow)
     def status(self):
         with self.lock:return dict(self.cached) if self.cached else dict(ok=True,controller_id=self.c.controller_id,pending=True)

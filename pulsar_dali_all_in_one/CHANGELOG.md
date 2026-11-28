@@ -1,3 +1,10 @@
+# 0.23.0 – Hardware diagnostics
+
+- Local and paired remote hardware page, cached read-only metadata and JSON export.
+- SPI sysfs inventory; allowlisted LUKS metadata from already visible partitions; eMMC, RTC, thermal, CPU/RAM/disk, uptime and existing STM32/UART status.
+- Bounded in-memory bus transition history and existing transport counters. No key material, SPI payload, new device permissions, recovery writes or watchdog changes.
+- Physical hardware verification pending.
+
 # 0.22.0 – Local zone automation (experimental)
 
 - Optional independent local worker for occupancy/hold, relative daylight regulation, weekly schedule and night level.

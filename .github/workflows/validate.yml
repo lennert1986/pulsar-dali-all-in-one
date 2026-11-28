@@ -19,6 +19,7 @@ jobs:
           python3 -m py_compile app/*.py
           python3 app/test_bridge.py
           python3 app/test_hardware_profile.py
+          python3 app/test_hardware_diagnostics.py
           python3 app/test_lab_checks.py
           python3 app/test_advanced.py
           python3 app/test_feedback.py

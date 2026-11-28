@@ -2,7 +2,7 @@
 
 **Local DALI control, commissioning, multi-controller management and native Home Assistant MQTT Discovery in one app.**
 
-![Version](https://img.shields.io/badge/version-0.21.4-blue)
+![Version](https://img.shields.io/badge/version-0.23.0-blue)
 ![Stage](https://img.shields.io/badge/stage-experimental-orange)
 ![Architecture](https://img.shields.io/badge/architecture-aarch64%20%7C%20amd64-blue)
 [![Validation](https://github.com/lennert1986/pulsar-dali-all-in-one/actions/workflows/validate.yml/badge.svg)](https://github.com/lennert1986/pulsar-dali-all-in-one/actions/workflows/validate.yml)
@@ -12,7 +12,7 @@ Pulsar DALI All-in-One is an independent, experimental Home Assistant app (forme
 
 The project is intended for installations that need direct DALI access and local operation as well as a unified Home Assistant interface. A hardware controller can handle local push-button bindings without a running MQTT broker or a Home Assistant automation, while the master can expose registered controllers to one central MQTT broker.
 
-> **Experimental software.** Current app version: **0.21.4**. Automated software validation is not equivalent to DALI certification, electrical commissioning, a real HAOS installation test or verification on every driver, sensor and controller model. Test changes on isolated hardware before deploying them to an occupied installation. This repository is not an official manufacturer product or a certified emergency-lighting system.
+> **Experimental software.** Current app version: **0.23.0**. Automated software validation is not equivalent to DALI certification, electrical commissioning, a real HAOS installation test or verification on every driver, sensor and controller model. Test changes on isolated hardware before deploying them to an occupied installation. This repository is not an official manufacturer product or a certified emergency-lighting system.
 
 ## Contents
 
@@ -40,7 +40,7 @@ The project is intended for installations that need direct DALI access and local
 
 **Implemented** means that the functionality exists in the source code. Features described as optional must be enabled or configured before use. Advanced hardware functions remain experimental unless separately verified on the actual installation.
 
-| Area | Capabilities in 0.21.4 | Notes |
+| Area | Capabilities in 0.23.0 | Notes |
 | --- | --- | --- |
 | Local DALI | Three independent buses, gear scanning, direct arc levels, relay/switch control, groups and scenes | Compatible local STM32/UART hardware required |
 | Commissioning | Address discovery, address conflict handling, unaddressed gear commissioning and backups | Use an isolated test bus for risky addressing operations |
@@ -266,12 +266,14 @@ Enable `dt8_mqtt_enabled: true` on the publishing app, inspect compatible DT8 ge
 
 ## Web interface
 
-The responsive UI has ten main pages and remembers the selected controller where applicable. The interface uses Danish labels; the explanations below include their English meanings.
+The responsive UI has twelve main pages and remembers the selected controller where applicable. The interface uses Danish labels; the explanations below include their English meanings.
 
 | Page | Purpose |
 | --- | --- |
 | **Oversigt** | Buses, gear, groups, scenes and day-to-day control |
 | **Konfiguration** | Select controller → bus → device; configure only relevant actions |
+| **Automatik** | Local occupancy, daylight, schedules and override |
+| **Hardware** | SPI, encryption metadata, eMMC, RTC and host-visible diagnostics |
 | **Energi** | Sampled D4i measurements and measurement coverage |
 | **Nødbelysning** | Emergency status and command history |
 | **Vedligeholdelse** | Backups, resource status, communication and combined export |
@@ -515,6 +517,7 @@ All defaults below are from the current app manifest. Examples are partial overr
 | `remote_api_enabled` | false | Incoming remote HTTPS server |
 | `remote_legacy_token_enabled` | false | Legacy manual shared-token receiver compatibility; not a paired master mode |
 | `local_button_bindings_enabled` | false | Enable opt-in local button worker |
+| `local_automation_enabled` | false | Enable local zone automation |
 | `auto_backup_enabled` | false | Daily cached configuration backup |
 | `auto_identify` | true | Low-priority identity/capability reads |
 | `d4i_poll_enabled` | false | Optional D4i sampling |
@@ -650,7 +653,9 @@ New experimental capabilities are opt-in where appropriate. Test hardware compat
 
 | Version | Main changes |
 | --- | --- |
-| **0.21.4** | Feedback LED settings, local button bindings, automatic status feedback, MQTT feedback buttons |
+| **0.23.0** | Read-only hardware and encryption metadata, local/remote diagnostics |
+| 0.22.0 | Local zone automation, MQTT override and schedules |
+| 0.21.4 | Feedback LED settings, local button bindings, automatic status feedback, MQTT feedback buttons |
 | 0.21.3 | Part 332 feedback detection and manual diagnostics |
 | 0.21.2 | Exclusive master/subordinate roles |
 | 0.21.1 | One master per subordinate and verified IP recovery |
@@ -668,3 +673,7 @@ New experimental capabilities are opt-in where appropriate. Test hardware compat
 | 0.13.0 | All-in-One app, local/remote control and MQTT Discovery |
 
 Maintained by [lennert1986](https://github.com/lennert1986). Manufacturer names are used for hardware identification; no manufacturer endorsement is implied.
+
+## Hardware and local automation (current releases)
+
+Version 0.22.0 adds opt-in local zone automation; enable `local_automation_enabled` on the hardware controller. Version 0.23.0 adds the Hardware page, including read-only SPI device metadata, visible LUKS headers, eMMC, RTC, thermal and system resources, existing STM32/UART status and bounded bus-state history. Select a local or enrolled controller and export JSON. Raw SPI contents and key material are not collected; no device access is expanded. See the latest sections of DOCS.md for limitations and setup. Hardware validation is pending.

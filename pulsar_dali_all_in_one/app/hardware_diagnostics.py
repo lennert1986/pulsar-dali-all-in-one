@@ -1,10 +1,13 @@
 """Read-only, bounded host-visible hardware metadata.
 Never read SPI payloads, key files, device-mapper tables or decrypted content.
-No device access grants, mounts, unlocks, driver changes or bus probing.
+Optional fixed SPI identification only; no mounts, unlocks or driver changes.
 """
 import os,re,stat,subprocess,time,threading,shutil
 from pathlib import Path
 import dashboards
+import spi_identity
+import hardware_profile
+import json
 
 def read(path,limit=4096):
     try:
@@ -36,7 +39,7 @@ def identity():
     out["kernel"]=os.uname().release
     return out
 
-def spi():
+def spi(probe=False):
     items=[]
     for p in entries("/sys/bus/spi/devices","spi*"):
         if not re.fullmatch(r"spi\d+\.\d+",p.name):continue
@@ -58,7 +61,7 @@ def spi():
         except OSError:continue
         bus,cs=map(int,p.name[6:].split("."))
         items.append(dict(device=f"spi{bus}.{cs}",bus=bus,chip_select=cs,device_node=str(p),node_visible=True,metadata_source="device node"))
-    return dict(devices=items,payload_read=False,key_material="not collected",
+    return dict(devices=items,identification=spi_identity.identify() if probe else {"status":"disabled"},payload_read=False,key_material="not collected",
                 note="Chip model, contents, speed and mode are not inferred from node presence.")
 
 def parse_luks(text):
@@ -154,6 +157,10 @@ class Monitor:
     def __init__(self,c,log):
         self.c=c;self.log=log;self.lock=threading.Lock();self.stop_event=threading.Event()
         self.thread=None;self.cached={};self.history=[];self.last_buses={};self.cpu=None;self.slow_at=0;self.slow={}
+        try:opts=json.loads(Path('/data/options.json').read_text())
+        except (OSError,ValueError):opts={}
+        self.spi_probe=opts.get('spi_identification_enabled') is True and getattr(c.settings,'local_dali_enabled',False) and ('compute module 4' in hardware_profile.board_model().lower() or getattr(c.settings,'hardware_profile',None)=='vertex_g4')
+        self.spi_result=None
     def start(self):
         self.thread=threading.Thread(target=self.run,daemon=True,name="hardware-monitor");self.thread.start()
     def stop(self):
@@ -167,6 +174,9 @@ class Monitor:
         self.cpu=sample
         if now>=self.slow_at:
             self.slow=dict(identity=identity(),spi=spi(),storage=partitions(),emmc=emmc(),rtc=rtc())
+            if self.spi_probe:
+                if self.spi_result is None:self.spi_result=spi_identity.identify()
+                self.slow['spi']['identification']=self.spi_result
             self.slow_at=now+120
         s=c.snapshot();buses={}
         for b,v in s.get("buses",{}).items():

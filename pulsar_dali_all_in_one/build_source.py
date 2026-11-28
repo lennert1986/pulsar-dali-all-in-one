@@ -8,7 +8,7 @@ def change(old,new):
     global s
     if old not in s: raise RuntimeError("Missing patch anchor: "+repr(old))
     s=s.replace(old,new,1)
-s=s.replace("0.12.0","0.22.0").replace("Pulsar DALI Control 0.22.0","Pulsar DALI All-in-One 0.22.0")
+s=s.replace("0.12.0","0.23.0").replace("Pulsar DALI Control 0.23.0","Pulsar DALI All-in-One 0.23.0")
 change('    remote_api_enabled: bool = False','    remote_api_enabled: bool = False\n    local_dali_enabled: bool = True')
 change('        led_enabled=bool(data.get("led_enabled", True)),','        led_enabled=bool(data.get("led_enabled", True)) and bool(data.get("local_dali_enabled", True)),')
 change('        remote_api_enabled=bool(data.get("remote_api_enabled", False)),','        remote_api_enabled=bool(data.get("remote_api_enabled", False)),\n        local_dali_enabled=bool(data.get("local_dali_enabled", True)),')
@@ -139,6 +139,33 @@ change('        if path.endswith(("/testlab", "/configuration")):', '''        i
             self.wfile.write(body)
             return
         if path.endswith(("/testlab", "/configuration")):''')
+
+
+change('import automation_ui\nlocal_automation.install', 'import automation_ui\nimport hardware_diagnostics\nimport hardware_ui\nlocal_automation.install')
+change('    "/api/admin/clock",', '    "/api/admin/clock",\n    "/api/admin/hardware",')
+change('        if path.endswith("/api/admin/clock"):', '''        if path.endswith("/api/admin/hardware"):
+            worker=getattr(ctl,"hardware_monitor",None)
+            self._json(worker.status() if worker else {"ok":True,"controller_id":ctl.controller_id,"pending":True})
+            return
+        if path.endswith("/api/admin/clock"):''')
+change('                elif operation == "snapshot":', '''                elif operation == "hardware":
+                    result = remote_controller_request(item, "GET", "/api/admin/hardware", timeout=10)
+                elif operation == "snapshot":''')
+change('        if path.endswith("/automation"):', '''        if path.endswith("/hardware"):
+            if getattr(self.server,"is_remote",False):
+                self._json({"ok":False,"error":"not found"},404)
+                return
+            body=hardware_ui.page().encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type","text/html; charset=utf-8")
+            self.send_header("Cache-Control","no-store")
+            self.send_header("Content-Length",str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if path.endswith("/automation"):''')
+change('    controller.automation_engine.start()\n    bridge.start()', '    controller.automation_engine.start()\n    controller.hardware_monitor=hardware_diagnostics.Monitor(controller,log)\n    controller.hardware_monitor.start()\n    bridge.start()')
+change('        controller.automation_engine.stop()', '        controller.hardware_monitor.stop()\n        controller.automation_engine.stop()')
 
 compile(s,"pulsar_dali_control.py","exec")
 out=pathlib.Path(sys.argv[1])

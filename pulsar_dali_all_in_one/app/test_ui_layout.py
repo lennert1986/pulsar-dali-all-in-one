@@ -34,7 +34,9 @@ import dashboards
 for key in ("energy","emergency","maintenance"): pages[key]=dashboards.page_for(key)
 import automation_ui
 pages['automation']=automation_ui.page()
-assert len(pages)==11
+import hardware_ui
+pages['hardware']=hardware_ui.page()
+assert len(pages)==12
 with tempfile.TemporaryDirectory() as d:
     for key,page in pages.items():
         check=Check();check.feed(page)

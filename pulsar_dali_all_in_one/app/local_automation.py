@@ -227,7 +227,10 @@ def install(cls):
     for name in ("set_level","set_group_level","broadcast_level","broadcast_command","broadcast_scene"):
         old=getattr(cls,name)
         def wrap(method,kind):
-            def call(self,b,*args,**kwargs):
+            def call(self,bus_number,*args,**kwargs):
+                with self.operation_lock:
+                    return locked(self,bus_number,*args,**kwargs)
+            def locked(self,b,*args,**kwargs):
                 r=method(self,b,*args,**kwargs)
                 engine=getattr(self,"automation_engine",None)
                 if engine and r.get("ok"):

@@ -127,6 +127,15 @@ def catalog(s,name,prefix,bridge_av,dt8=False):
         elif t in (2,4):
             v=i.get("relative_illuminance" if t==4 else "absolute_input",i.get("input_value"))
             add("sensor",suf,d,f"{'Relative illuminance' if t==4 else 'Input value'} {n}",ok and v is not None,None if v is None else str(v),state_class="measurement")
+    for r in s.get("automation_rules",[]):
+        suf="automation_"+r["id"]; d=dev(suf,r["name"],"Local automation")
+        ok=bool(s.get("automation_enabled"))
+        route=dict(kind="automation_enable",controller_id=cid,id=r["id"],bus=r["bus"])
+        add("switch",suf+"_enable",d,"Automatic control",ok,"ON" if r["enabled"] else "OFF",route,retain=False)
+        for seconds,label in ((1800,"Pause 30 min"),(0,"Resume automatic control")):
+            add("button",suf+"_override_"+str(seconds),d,label,ok and r["enabled"],route=dict(route,kind="automation_override",seconds=seconds),payload_press="PRESS",retain=False)
+        add("sensor",suf+"_status",d,"Automation status",ok,r.get("runtime",{}).get("status","unknown"))
+        add("sensor",suf+"_remaining",d,"Override remaining",ok,str(r.get("runtime",{}).get("override_remaining",0)),unit_of_measurement="s")
     add("button","scan",dev("controller","Controller","Pulsar DALI"),"Scan all buses",any(bus_ok(b) for b in (1,2,3)),route=dict(kind="scan"),payload_press="PRESS",entity_category="config")
     return out
 
@@ -174,6 +183,15 @@ def request(route,comp,payload):
             if any(type(x) is not int or not 0<=x<=255 for x in v): raise ValueError("Invalid color")
             d["rgbwaf"]=[round(x*254/255) for x in v]
         return "/api/lab/run",d,60
+    if k in ("automation_enable","automation_override"):
+        d.update(mode="automation",action=k,controller_id=route["controller_id"],id=route["id"],confirm=True)
+        if k=="automation_enable":
+            if payload not in ("ON","OFF"):raise ValueError("Invalid automation state")
+            d["enabled"]=payload=="ON"
+        else:
+            if payload!="PRESS":raise ValueError("Invalid override command")
+            d["seconds"]=route["seconds"]
+        return "/api/lab/run",d,20
     if k=="feedback" and payload=="PRESS":
         d.update(mode="advanced",action="feedback_mqtt",controller_id=route["controller_id"],address=route["address"],instance=route["instance"],value=route["value"],confirm=True)
         return "/api/lab/run",d,20

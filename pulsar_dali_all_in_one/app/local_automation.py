@@ -96,7 +96,12 @@ def live_sensor(c,b,ref,typ):
     # Read resolution live; do not confuse relative input with lux.
     resolution=c._dali2_query_instance(b,a,n,0x81)
     if type(resolution) is not int or not 1<=resolution<=32:raise ValueError("Invalid resolution")
-    raw=c._read_input_value(b,a,n,resolution)
+    raw=c._dali2_query_instance(b,a,n,0x8C)
+    if raw is None:raise ValueError("Sensor no reply")
+    for _ in range((resolution+7)//8-1):
+        part=c._dali2_query_instance(b,a,n,0x8D)
+        if part is None:raise ValueError("Incomplete sensor value")
+        raw=(raw<<8)|part
     if type(raw) is not int or raw<0:raise ValueError("Sensor no reply")
     if typ==3:
         if raw not in (0,0x55,0xAA,0xFF):raise ValueError("Invalid occupancy value")
@@ -115,7 +120,7 @@ def desired(r,state,mono,wall,occupied,light,actual):
     if r["occupancy"]:
         if occupied is None:
             return (r["fallback_level"] if r["fallback"]=="level" else None),"occupancy_error"
-        if occupied:state["last_occupied"]=mono
+        if occupied:state["last_occupied"]=state.get("occupancy",(True,mono))[1]
         if not occupied and mono-state.get("last_occupied",-1e12)>=r["hold"]:
             return r["vacancy_level"],"vacant"
     if r["daylight"]:

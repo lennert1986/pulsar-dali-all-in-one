@@ -32,7 +32,9 @@ for n in ast.parse(src).body:
 pages["testlab"]=test_lab.page_for(False);pages["configuration"]=test_lab.page_for(True)
 import dashboards
 for key in ("energy","emergency","maintenance"): pages[key]=dashboards.page_for(key)
-assert len(pages)==10
+import automation_ui
+pages['automation']=automation_ui.page()
+assert len(pages)==11
 with tempfile.TemporaryDirectory() as d:
     for key,page in pages.items():
         check=Check();check.feed(page)

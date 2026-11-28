@@ -13,6 +13,7 @@ COPY app/feedback.py /app/feedback.py
 COPY app/button_bindings.py /app/button_bindings.py
 COPY app/local_automation.py /app/local_automation.py
 COPY app/automation_ui.py /app/automation_ui.py
+COPY app/front_panel.py /app/front_panel.py
 COPY app/hardware_diagnostics.py /app/hardware_diagnostics.py
 COPY app/vertex_hardware.py /app/vertex_hardware.py
 COPY app/spi_identity.py /app/spi_identity.py

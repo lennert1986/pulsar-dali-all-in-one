@@ -106,6 +106,8 @@ def resolve(options, *, model=None, groups=None, present=None):
         if not all(path.startswith("/dev/") and present(path) for path in paths):
             raise ValueError("One or more selected serial devices are missing: " + ", ".join(paths))
         result.update(hardware_profile=profile, local_dali_enabled=True, i2c_bus=bus)
+        if profile in ("vertex_g3","vertex_g4"):
+            result["led_active_high"]=profile=="vertex_g3"
         for i, path in enumerate(paths, 1):
             result["dali%d_device" % i] = path
         return result

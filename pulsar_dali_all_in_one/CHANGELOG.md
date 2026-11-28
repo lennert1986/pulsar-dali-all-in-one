@@ -1,3 +1,11 @@
+## 0.25.0
+
+- Opt-in front panel monitoring and status/network LED control using original G3/G4 pin mapping.
+- Automatic LED polarity on explicit/resolved Vertex profiles (G3 active high, G4 active low).
+- Debounced short/long button event history; no physical button triggers actions in this test release.
+- Existing DALI activity LEDs remain under their current driver; front panel worker writes only known port A LED masks and button configuration masks.
+- No factory reset, broadcast, scanning, MQTT front panel publishing or manual LED test yet.
+
 ## 0.24.1
 
 - Verified Vertex G4 connector mapping: PHY 2 left, PHY 3 right. PHY 4 presumed internal; PHY 1 unknown.

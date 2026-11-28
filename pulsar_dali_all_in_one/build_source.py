@@ -8,7 +8,7 @@ def change(old,new):
     global s
     if old not in s: raise RuntimeError("Missing patch anchor: "+repr(old))
     s=s.replace(old,new,1)
-s=s.replace("0.12.0","0.24.1").replace("Pulsar DALI Control 0.24.1","Pulsar DALI All-in-One 0.24.1")
+s=s.replace("0.12.0","0.25.0").replace("Pulsar DALI Control 0.25.0","Pulsar DALI All-in-One 0.25.0")
 change('    remote_api_enabled: bool = False','    remote_api_enabled: bool = False\n    local_dali_enabled: bool = True')
 change('        led_enabled=bool(data.get("led_enabled", True)),','        led_enabled=bool(data.get("led_enabled", True)) and bool(data.get("local_dali_enabled", True)),')
 change('        remote_api_enabled=bool(data.get("remote_api_enabled", False)),','        remote_api_enabled=bool(data.get("remote_api_enabled", False)),\n        local_dali_enabled=bool(data.get("local_dali_enabled", True)),')
@@ -164,10 +164,11 @@ change('        if path.endswith("/automation"):', '''        if path.endswith("
             self.wfile.write(body)
             return
         if path.endswith("/automation"):''')
-change('    controller.automation_engine.start()\n    bridge.start()', '    controller.automation_engine.start()\n    controller.hardware_monitor=hardware_diagnostics.Monitor(controller,log)\n    controller.hardware_monitor.start()\n    bridge.start()')
-change('        controller.automation_engine.stop()', '        controller.hardware_monitor.stop()\n        controller.automation_engine.stop()')
+change('    controller.automation_engine.start()\n    bridge.start()', '    controller.automation_engine.start()\n    controller.hardware_monitor=hardware_diagnostics.Monitor(controller,log)\n    controller.hardware_monitor.start()\n    from front_panel import Panel\n    controller.front_panel=Panel(controller,log)\n    controller.front_panel.start()\n    bridge.start()')
+change('        controller.automation_engine.stop()', '        controller.front_panel.stop()\n        controller.hardware_monitor.stop()\n        controller.automation_engine.stop()')
 
 compile(s,"pulsar_dali_control.py","exec")
 out=pathlib.Path(sys.argv[1])
 out.parent.mkdir(parents=True,exist_ok=True)
 out.write_text(s,encoding="utf-8")
+

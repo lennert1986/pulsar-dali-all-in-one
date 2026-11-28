@@ -212,7 +212,7 @@ class Monitor:
                              hardware_error=getattr(c.settings,"hardware_error",None),
                              resources=resources,thermal=thermal(),buses=buses,transactions=stats,
                              watchdog=vertex_hardware.watchdog(read,number,entries),network=vertex_hardware.network(number,entries),ethernet=ethernet,
-                             history=list(self.history),**self.slow)
+                             front_panel=c.front_panel.status() if hasattr(c,"front_panel") else {"status":"disabled"},history=list(self.history),**self.slow)
     def status(self):
         with self.lock:return dict(self.cached) if self.cached else dict(ok=True,controller_id=self.c.controller_id,pending=True)
     def run(self):

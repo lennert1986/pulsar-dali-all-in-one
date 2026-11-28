@@ -20,8 +20,8 @@ def switch(transport=None):
         for port in range(1,5):
             link=reg(port*16+14); speed=reg(port*16+9)
             up=bool(link&0x20)
-            out["ports"].append(dict(port=port,link=up,autoneg_done=bool(link&0x40),speed_mbps=(100 if speed&4 else 10) if up else None,duplex=("full" if speed&2 else "half") if up else None))
-        out["note"]="PHY numbering, not verified connector mapping. No EEE or MIB indirect access."
+            out["ports"].append(dict(port=port,label={1:"PHY 1 (ukendt)",2:"Venstre LAN",3:"Højre LAN",4:"PHY 4 (formodet intern)"}[port],link=up,autoneg_done=bool(link&0x40),speed_mbps=(100 if speed&4 else 10) if up else None,duplex=("full" if speed&2 else "half") if up else None))
+        out["note"]="Vertex G4 cable test: PHY 2 left, PHY 3 right; PHY 4 presumed internal, PHY 1 unknown. No EEE or MIB indirect access."
         return out
     except (OSError,ValueError,IndexError):
         return dict(out,status="communication_error",ports=[])

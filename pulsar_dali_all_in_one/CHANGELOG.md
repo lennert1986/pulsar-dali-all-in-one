@@ -1,3 +1,10 @@
+## 0.24.1
+
+- Verified Vertex G4 connector mapping: PHY 2 left, PHY 3 right. PHY 4 presumed internal; PHY 1 unknown.
+- Hardware tabs, graphical LAN status, opt-out automatic refresh, in-memory link history and collapsed virtual interfaces.
+- CPU revision fallback for CM3/CM4 identification and resolved profile display.
+- No EEE writes, switch MIB or MQTT hardware publishing in this release.
+
 ## 0.24.0
 
 - Opt-in KSZ8795 Ethernet switch identification and four PHY port status readings.

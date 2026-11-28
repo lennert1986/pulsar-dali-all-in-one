@@ -36,6 +36,8 @@ def identity():
         k,v=(x.strip() for x in line.split(":",1))
         if k in ("Revision","Hardware","Serial"):
             out.setdefault(k.lower(),safe_text(v))
+    if not out.get("model"):
+        out["model"]=hardware_profile.board_model() or None
     out["machine"]=os.uname().machine
     out["kernel"]=os.uname().release
     return out
@@ -162,6 +164,7 @@ class Monitor:
         except (OSError,ValueError):opts={}
         self.spi_probe=opts.get('spi_identification_enabled') is True and getattr(c.settings,'local_dali_enabled',False) and ('compute module 4' in hardware_profile.board_model().lower() or getattr(c.settings,'hardware_profile',None)=='vertex_g4')
         self.spi_result=None
+        self.last_links={};self.link_history=[]
         self.eth_probe=opts.get('ethernet_diagnostics_enabled') is True and getattr(c.settings,'local_dali_enabled',False) and ('compute module 4' in hardware_profile.board_model().lower() or getattr(c.settings,'hardware_profile',None)=='vertex_g4')
     def start(self):
         self.thread=threading.Thread(target=self.run,daemon=True,name="hardware-monitor");self.thread.start()
@@ -194,13 +197,21 @@ class Monitor:
         try:resources["host_uptime_s"]=int(float(up.split()[0]))
         except (AttributeError,ValueError,IndexError):pass
         resources["cpu_percent"]=usage
+        ethernet=vertex_hardware.switch() if self.eth_probe else {"status":"disabled"}
+        for port in ethernet.get("ports",[]):
+            n=port["port"]; link=port["link"]
+            if n in self.last_links and self.last_links[n]!=link:
+                self.link_history.append(dict(timestamp=time.time(),port=n,label=port["label"],link=link))
+                self.link_history=self.link_history[-100:]
+            self.last_links[n]=link
+        ethernet["history"]=list(self.link_history)
         with self.lock:
             self.cached=dict(ok=True,controller_id=c.controller_id,sampled_at=time.time(),
                              scope="Host information visible inside the app container",
-                             hardware_profile=getattr(c.settings,"hardware_model",None),
+                             hardware_profile=getattr(c.settings,"hardware_profile",None) or getattr(c.settings,"hardware_model",None),
                              hardware_error=getattr(c.settings,"hardware_error",None),
                              resources=resources,thermal=thermal(),buses=buses,transactions=stats,
-                             watchdog=vertex_hardware.watchdog(read,number,entries),network=vertex_hardware.network(number,entries),ethernet=vertex_hardware.switch() if self.eth_probe else {'status':'disabled'},
+                             watchdog=vertex_hardware.watchdog(read,number,entries),network=vertex_hardware.network(number,entries),ethernet=ethernet,
                              history=list(self.history),**self.slow)
     def status(self):
         with self.lock:return dict(self.cached) if self.cached else dict(ok=True,controller_id=self.c.controller_id,pending=True)

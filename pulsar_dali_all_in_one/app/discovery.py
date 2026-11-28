@@ -67,7 +67,7 @@ class Discovery:
                         if self.advertise and now>=next_send:
                             try:role=self.role()
                             except Exception:role="conflict"
-                            payload=json.dumps({"protocol":MAGIC,"controller_id":self.uid,"port":8443,"name":self.name,"version":"0.24.0","role":role}).encode()
+                            payload=json.dumps({"protocol":MAGIC,"controller_id":self.uid,"port":8443,"name":self.name,"version":"0.24.1","role":role}).encode()
                             s.sendto(payload,(GROUP,PORT));next_send=now+15
                         try:
                             raw,source=s.recvfrom(1025);self.accept(raw,source[0],time.monotonic())

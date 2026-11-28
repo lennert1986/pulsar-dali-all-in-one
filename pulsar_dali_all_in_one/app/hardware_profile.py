@@ -16,6 +16,15 @@ def board_model():
         model = read(path)
         if model:
             return model
+    for line in read("/proc/cpuinfo").splitlines():
+        if line.partition(":")[0].strip()=="Revision":
+            try:
+                code=int(line.partition(":")[2].strip(),16)
+                if code & (1<<23):
+                    model=(code>>4)&255
+                    if model==0x14:return "Raspberry Pi Compute Module 4"
+                    if model in (0x0a,0x10):return "Raspberry Pi Compute Module 3"
+            except ValueError:pass
     return ""
 
 def ftdi_interfaces(sys_tty="/sys/class/tty", dev_dir="/dev", present=None):

@@ -1,6 +1,6 @@
 # Pulsar DALI All-in-One
 
-**Version 0.21.4 · Experimental · aarch64 / amd64**
+**Version 0.23.0 · Experimental · aarch64 / amd64**
 
 One Home Assistant app for compatible Pulsar/Vertex hardware, three DALI buses, local and remote commissioning, DALI-2 inputs, MQTT Discovery, diagnostics and secure multi-controller management.
 
@@ -76,3 +76,7 @@ Back up app data before upgrading or commissioning. Combined JSON snapshot expor
 The [complete GitHub README](https://github.com/lennert1986/pulsar-dali-all-in-one#readme) contains hardware mappings, installation instructions, all configuration defaults, multi-controller setup, MQTT, DALI-2 binding instructions, energy, emergency limitations and troubleshooting.
 
 **Experimental:** automated tests do not establish physical hardware compatibility, DALI certification or emergency-lighting compliance. Test advanced functions on an isolated bus before production use.
+
+## Local automation and hardware
+
+Enable `local_automation_enabled` for local zone rules. The Hardware page displays local or paired remote hardware metadata, including SPI inventory, readable LUKS metadata, eMMC, RTC, resources and bus status. No raw SPI data or keys are collected. See current DOCS.md for limitations.

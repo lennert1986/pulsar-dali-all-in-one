@@ -90,7 +90,7 @@ def parse_luks(text):
     return result
 
 def partitions():
-    rows=[];encrypted=[]
+    rows=[];encrypted=[];probes=0
     for p in entries("/sys/class/block","*"):
         n=p.name
         if not re.fullmatch(r"(?:mmcblk\d+(?:p\d+)?|sd[a-z]+\d*|nvme\d+n\d+(?:p\d+)?|dm-\d+)",n):continue
@@ -105,7 +105,8 @@ def partitions():
         try:visible=stat.S_ISBLK(node.stat().st_mode)
         except OSError:visible=False
         row["block_node_visible"]=visible
-        if visible and row["partition"] is not None and shutil.which("cryptsetup") and len(rows)<24:
+        if visible and row["partition"] is not None and shutil.which("cryptsetup") and probes<4:
+            probes+=1
             try:
                 cp=subprocess.run(["cryptsetup","luksDump",str(node)],capture_output=True,text=True,timeout=2,check=False)
                 if cp.returncode==0:
@@ -162,14 +163,14 @@ class Monitor:
         now=time.monotonic();c=self.c
         sample=cpu_sample();usage=None
         if sample and self.cpu and sample[0]>self.cpu[0]:
-            usage=round(100*(1-(sample[1]-self.cpu[1])/(sample[0]-self.cpu[0])),1)
+            usage=max(0,min(100,round(100*(1-(sample[1]-self.cpu[1])/(sample[0]-self.cpu[0])),1)))
         self.cpu=sample
         if now>=self.slow_at:
             self.slow=dict(identity=identity(),spi=spi(),storage=partitions(),emmc=emmc(),rtc=rtc())
             self.slow_at=now+120
         s=c.snapshot();buses={}
         for b,v in s.get("buses",{}).items():
-            buses[str(b)]={k:v.get(k) for k in ("online","uart_ready","firmware","device","last_error") if k in v}
+            buses[str(b)]={k:v.get(k) for k in ("online","uart_ready","firmware","device") if k in v}
             current=(v.get("online"),v.get("uart_ready"))
             if b in self.last_buses and current!=self.last_buses[b]:
                 self.history.append(dict(timestamp=time.time(),bus=b,online=current[0],uart_ready=current[1]))

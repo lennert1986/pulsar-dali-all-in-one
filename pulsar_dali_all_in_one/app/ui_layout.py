@@ -38,7 +38,7 @@ body .banner{position:fixed;z-index:1100;bottom:18px;right:24px;max-width:min(48
 @media(max-width:1050px){nav.pulsar-nav{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:600px){body .wrap,body main{padding:14px 12px 24px}.pulsar-brand{min-height:40px}.pulsar-name{font-size:15px}.pulsar-logo{width:34px;height:34px}.pulsar-heading{margin-bottom:14px}nav.pulsar-nav{grid-template-columns:repeat(3,minmax(0,1fr))}nav.pulsar-nav a{min-height:38px;font-size:12px}.card,main>section{padding:13px;margin-bottom:12px}.fields,.form,.form-grid{grid-template-columns:minmax(0,1fr)}.actions{align-items:stretch}.actions button{flex:1 1 auto}body .banner{bottom:12px;right:12px;max-width:calc(100% - 24px)}}
 """
-def apply(page,key,version="0.23.0"):
+def apply(page,key,version="0.23.1"):
     info=next(x for x in PAGES if x[0]==key)
     nav='<nav class="pulsar-nav" aria-label="Hovedmenu">'+''.join(
         '<a href="'+url+'"'+(' aria-current="page"' if k==key else '')+'>'+label+'</a>'

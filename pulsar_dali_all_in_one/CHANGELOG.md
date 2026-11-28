@@ -1,3 +1,9 @@
+# 0.23.1 – Optional active SPI identification
+
+- Vertex G4 SPI1/CS1 JEDEC ID and bounded SFDP density probe, disabled by default; no flash array contents or secret material collected.
+- Hardware page shows identification, family, estimated and reported capacities and communication errors.
+- Specific SPI device mapping; no full device access or host changes. Physical verification pending.
+
 # 0.23.0 – Hardware diagnostics
 
 - Local and paired remote hardware page, cached read-only metadata and JSON export.

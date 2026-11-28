@@ -14,6 +14,7 @@ COPY app/button_bindings.py /app/button_bindings.py
 COPY app/local_automation.py /app/local_automation.py
 COPY app/automation_ui.py /app/automation_ui.py
 COPY app/hardware_diagnostics.py /app/hardware_diagnostics.py
+COPY app/spi_identity.py /app/spi_identity.py
 COPY app/hardware_ui.py /app/hardware_ui.py
 COPY app/ui_layout.py /app/ui_layout.py
 COPY app/maintenance.py /app/maintenance.py
